@@ -1,0 +1,12 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+*.apk
+*.ap_
+*.dex
+.idea/
+*.iml
+.DS_Store
+flick_screenshot.png
+flick_step*.png
