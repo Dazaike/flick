@@ -8,12 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.zIndex
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,9 +25,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -71,7 +62,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -217,17 +207,13 @@ fun BookmarkListScreen(
         } else {
             var editingBookmark by remember { mutableStateOf<Bookmark?>(null) }
             var localBookmarks by remember(bookmarks) { mutableStateOf(bookmarks) }
-            var draggedIndex by remember { mutableStateOf<Int?>(null) }
-            var dragOffset by remember { mutableStateOf(Offset.Zero) }
             var expandedFolders by remember { mutableStateOf(setOf<Long>()) }
             var folderPendingDelete by remember { mutableStateOf<Bookmark?>(null) }
             var folderAddingTo by remember { mutableStateOf<Bookmark?>(null) }
-            var mergeCandidateId by remember { mutableStateOf<Long?>(null) }
-            var settledSinceMs by remember { mutableStateOf(0L) }
-            var mergeHighlightId by remember { mutableStateOf<Long?>(null) }
-            var readyToMerge by remember { mutableStateOf(false) }
-            val gridState = rememberLazyGridState()
-            val idToIndex by remember { derivedStateOf { localBookmarks.withIndex().associate { (i, b) -> b.id to i } } }
+
+            LaunchedEffect(bookmarks) {
+                localBookmarks = bookmarks
+            }
 
             val requestDelete: (Bookmark) -> Unit = { bookmark ->
                 if (bookmark.action is BookmarkAction.Folder) {
@@ -241,163 +227,41 @@ fun BookmarkListScreen(
             }
 
             if (gridView) {
-                LazyVerticalGrid(
-                    state = gridState,
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentPadding = PaddingValues(8.dp)
-                ) {
-                    localBookmarks.forEachIndexed { index, bookmark ->
-                        item(key = bookmark.id) {
-                            val isDragging = draggedIndex == index
-                            val itemModifier = if (isDragging) {
-                                Modifier
-                                    .zIndex(1f)
-                                    .graphicsLayer {
-                                        translationX = dragOffset.x
-                                        translationY = dragOffset.y
-                                        scaleX = 1.08f
-                                        scaleY = 1.08f
-                                        alpha = 0.9f
-                                    }
-                            } else {
-                                Modifier.animateItem(placementSpec = motion.flickSpring())
-                            }
-
-                            val dragModifier = itemModifier
-                                .pointerInput(bookmark.id) {
-                                    detectDragGesturesAfterLongPress(
-                                        onDragStart = { offset ->
-                                            draggedIndex = idToIndex[bookmark.id]
-                                            dragOffset = Offset.Zero
-                                            mergeCandidateId = null
-                                            mergeHighlightId = null
-                                            readyToMerge = false
-                                            settledSinceMs = System.currentTimeMillis()
-                                        },
-                                        onDrag = { change, dragAmount ->
-                                            change.consume()
-                                            dragOffset += dragAmount
-
-                                            val draggedIdx = draggedIndex ?: return@detectDragGesturesAfterLongPress
-                                            val layoutInfo = gridState.layoutInfo
-                                            val draggedItemInfo = layoutInfo.visibleItemsInfo.find { it.key == bookmark.id } ?: return@detectDragGesturesAfterLongPress
-
-                                            val currentCenterX = draggedItemInfo.offset.x + draggedItemInfo.size.width / 2 + dragOffset.x
-                                            val currentCenterY = draggedItemInfo.offset.y + draggedItemInfo.size.height / 2 + dragOffset.y
-
-                                            val targetItem = layoutInfo.visibleItemsInfo.find { info ->
-                                                val left = info.offset.x
-                                                val right = info.offset.x + info.size.width
-                                                val top = info.offset.y
-                                                val bottom = info.offset.y + info.size.height
-                                                currentCenterX >= left && currentCenterX <= right && currentCenterY >= top && currentCenterY <= bottom
-                                            }
-
-                                            if (targetItem == null) {
-                                                mergeCandidateId = null
-                                                mergeHighlightId = null
-                                                readyToMerge = false
-                                            } else if (targetItem.key != bookmark.id) {
-                                                val targetIdx = (targetItem.key as? Long)?.let { idToIndex[it] } ?: -1
-                                                if (targetIdx != -1) {
-                                                    mergeCandidateId = targetItem.key as? Long
-                                                    settledSinceMs = System.currentTimeMillis()
-                                                    readyToMerge = false
-                                                    mergeHighlightId = null
-                                                    localBookmarks = localBookmarks.toMutableList().apply {
-                                                        add(targetIdx, removeAt(draggedIdx))
-                                                    }
-                                                    draggedIndex = targetIdx
-                                                    val targetItemInfo = layoutInfo.visibleItemsInfo.find { it.key == targetItem.key }
-                                                    if (targetItemInfo != null) {
-                                                        dragOffset += Offset(
-                                                            (draggedItemInfo.offset.x - targetItemInfo.offset.x).toFloat(),
-                                                            (draggedItemInfo.offset.y - targetItemInfo.offset.y).toFloat()
-                                                        )
-                                                    }
-                                                }
-                                            } else if (mergeCandidateId != null) {
-                                                val elapsed = System.currentTimeMillis() - settledSinceMs
-                                                if (elapsed >= MERGE_DWELL_MS) {
-                                                    readyToMerge = true
-                                                    mergeHighlightId = mergeCandidateId
-                                                }
-                                            }
-                                        },
-                                        onDragEnd = {
-                                            draggedIndex = null
-                                            dragOffset = Offset.Zero
-                                            val targetId = mergeCandidateId
-                                            val shouldMerge = readyToMerge
-                                            mergeCandidateId = null
-                                            mergeHighlightId = null
-                                            readyToMerge = false
-                                            if (shouldMerge && targetId != null) {
-                                                viewModel.mergeIntoFolder(bookmark.id, targetId)
-                                            } else {
-                                                viewModel.updateAllSortOrders(localBookmarks)
-                                            }
-                                        },
-                                        onDragCancel = {
-                                            draggedIndex = null
-                                            dragOffset = Offset.Zero
-                                            mergeCandidateId = null
-                                            mergeHighlightId = null
-                                            readyToMerge = false
-                                        }
-                                    )
-                                }
-
-                            if (bookmark.action is BookmarkAction.Folder) {
-                                FolderGridCard(
-                                    bookmark = bookmark,
-                                    isExpanded = bookmark.id in expandedFolders,
-                                    mergeHighlighted = mergeHighlightId == bookmark.id,
-                                    onClick = { toggleFolderExpanded(bookmark.id) },
-                                    onAddBookmarks = { folderAddingTo = bookmark },
-                                    onDelete = { requestDelete(bookmark) },
-                                    modifier = dragModifier
-                                )
-                            } else {
-                                BookmarkGridCard(
-                                    bookmark = bookmark,
-                                    icon = icons[bookmark.id],
-                                    mergeHighlighted = mergeHighlightId == bookmark.id,
-                                    onClick = {
-                                        if (!executor.execute(context, bookmark.action)) {
-                                            snackbarScope.launch {
-                                                snackbarHostState.showSnackbar("Couldn't launch bookmark")
-                                            }
-                                        }
-                                    },
-                                    onEdit = { editingBookmark = bookmark },
-                                    onDelete = { requestDelete(bookmark) },
-                                    modifier = dragModifier
-                                )
+                BookmarkListDragGrid(
+                    bookmarks = localBookmarks,
+                    icons = icons,
+                    expandedFolders = expandedFolders,
+                    contentPadding = padding,
+                    viewModel = viewModel,
+                    onToggleFolderExpanded = toggleFolderExpanded,
+                    onFolderAddBookmarks = { folderAddingTo = it },
+                    onRequestDelete = requestDelete,
+                    onBookmarkClick = { bookmark ->
+                        if (!executor.execute(context, bookmark.action)) {
+                            snackbarScope.launch {
+                                snackbarHostState.showSnackbar("Couldn't launch bookmark")
                             }
                         }
-
-                        if (bookmark.action is BookmarkAction.Folder && bookmark.id in expandedFolders) {
-                            item(key = "folder_children_grid_${bookmark.id}", span = { GridItemSpan(maxLineSpan) }) {
-                                FolderChildrenGridRow(
-                                    folderId = bookmark.id,
-                                    viewModel = viewModel,
-                                    onClick = { child ->
-                                        if (!executor.execute(context, child.action)) {
-                                            snackbarScope.launch {
-                                                snackbarHostState.showSnackbar("Couldn't launch bookmark")
-                                            }
-                                        }
-                                    },
-                                    onEdit = { child -> editingBookmark = child },
-                                    onDelete = { child -> requestDelete(child) },
-                                    onRemoveFromFolder = { child -> viewModel.removeFromFolder(child) }
-                                )
+                    },
+                    onEditBookmark = { editingBookmark = it },
+                    onFolderChildClick = { child ->
+                        if (!executor.execute(context, child.action)) {
+                            snackbarScope.launch {
+                                snackbarHostState.showSnackbar("Couldn't launch bookmark")
                             }
                         }
+                    },
+                    onFolderChildEdit = { editingBookmark = it },
+                    onFolderChildDelete = requestDelete,
+                    onRemoveFromFolder = { viewModel.removeFromFolder(it) },
+                    onReorder = { reordered ->
+                        localBookmarks = reordered
+                        viewModel.updateAllSortOrders(reordered)
+                    },
+                    onMergeIntoFolder = { draggedId, targetId ->
+                        viewModel.mergeIntoFolder(draggedId, targetId)
                     }
-                }
+                )
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
                     bookmarks.forEach { bookmark ->
@@ -567,7 +431,7 @@ private fun BookmarkRow(
 }
 
 @Composable
-private fun BookmarkGridCard(
+internal fun BookmarkGridCard(
     bookmark: Bookmark,
     icon: Bitmap?,
     onClick: () -> Unit,
@@ -592,7 +456,7 @@ private fun BookmarkGridCard(
             .clickable(onClick = onClick)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(8.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -651,7 +515,7 @@ private fun FolderListRow(
 
 /** Top-level folder card for grid view, mirroring [FolderListRow]'s affordances. */
 @Composable
-private fun FolderGridCard(
+internal fun FolderGridCard(
     bookmark: Bookmark,
     isExpanded: Boolean,
     onClick: () -> Unit,
@@ -676,26 +540,35 @@ private fun FolderGridCard(
             )
             .clickable(onClick = onClick)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(40.dp))
-            Text(
-                text = "${bookmark.label} (${children.size})",
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Row(horizontalArrangement = Arrangement.Center) {
-                BorderedIconButton(Icons.AutoMirrored.Filled.PlaylistAdd, "Add bookmarks", onAddBookmarks)
-                BorderedIconButton(
-                    if (isExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                    if (isExpanded) "Collapse" else "Expand",
-                    onClick
+        Box(modifier = Modifier.fillMaxSize()) {
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(36.dp)
+            ) {
+                Icon(Icons.Filled.Delete, contentDescription = "Delete folder")
+            }
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(40.dp))
+                Text(
+                    text = "${bookmark.label} (${children.size})",
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                BorderedIconButton(Icons.Filled.Delete, "Delete", onDelete)
+                Row(horizontalArrangement = Arrangement.Center) {
+                    BorderedIconButton(Icons.AutoMirrored.Filled.PlaylistAdd, "Add bookmarks", onAddBookmarks)
+                    BorderedIconButton(
+                        if (isExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                        if (isExpanded) "Collapse" else "Expand",
+                        onClick
+                    )
+                }
             }
         }
     }
@@ -737,7 +610,7 @@ private fun FolderChildrenList(
 
 /** Inline expanded contents of a folder in grid view: a horizontally scrollable row of cards. */
 @Composable
-private fun FolderChildrenGridRow(
+internal fun FolderChildrenGridRow(
     folderId: Long,
     viewModel: BookmarkListViewModel,
     onClick: (Bookmark) -> Unit,

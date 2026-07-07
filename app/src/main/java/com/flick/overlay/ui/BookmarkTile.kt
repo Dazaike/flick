@@ -63,6 +63,8 @@ fun BookmarkTile(
     slideAnimation: Boolean = false,
     bounceEnabled: Boolean = false,
     mergeHighlighted: Boolean = false,
+    clickEnabled: Boolean = true,
+    animateEnter: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val unavailable = !isAvailable
@@ -107,11 +109,13 @@ fun BookmarkTile(
     val density = LocalDensity.current
     val slideOffsetPx = with(density) { 18.dp.toPx() }
     val enterAlpha = when {
+        !animateEnter -> 1f
         !motion.enabled -> 1f
         slideAnimation -> tileRevealAlpha(enterProgress, invisibleUntil = 0.82f)
         else -> tileRevealAlpha(enterProgress, invisibleUntil = 0.6f)
     }
-    val travelProgress = easeOutCubic(enterProgress)
+    val travelProgress = if (animateEnter) easeOutCubic(enterProgress) else 1f
+    val displayedEnterScale = if (animateEnter) enterScale else 1f
 
     Surface(
         modifier = modifier
@@ -119,6 +123,7 @@ fun BookmarkTile(
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .semantics { contentDescription = item.bookmark.label }
             .clickable(
+                enabled = clickEnabled,
                 interactionSource = interactionSource,
                 indication = LocalIndication.current,
                 onClick = onClick
@@ -139,15 +144,15 @@ fun BookmarkTile(
                 .graphicsLayer {
                     clip = false
                     alpha = enterAlpha
-                    if (motion.enabled) {
+                    if (motion.enabled && animateEnter) {
                         when {
                             slideAnimation -> {
                                 val offset = (1f - travelProgress) * slideOffsetPx
                                 translationX = offset
                             }
                             else -> {
-                                scaleX = enterScale
-                                scaleY = enterScale
+                                scaleX = displayedEnterScale
+                                scaleY = displayedEnterScale
                                 translationY = (1f - travelProgress) * slideOffsetPx / 3f
                             }
                         }

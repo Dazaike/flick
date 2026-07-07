@@ -51,9 +51,32 @@ class BookmarkRepository @Inject constructor(
     suspend fun updateSortOrders(ids: List<Long>) = bookmarkDao.updateSortOrders(ids)
 
     /** Creates a new folder bookmark and moves the given existing bookmarks into it. */
-    suspend fun createFolder(categoryId: Long, label: String, memberIds: List<Long>, sortOrder: Int): Long {
-        val folderId = bookmarkDao.insert(newFolderEntity(categoryId, label, sortOrder))
-        bookmarkDao.setParentFolders(memberIds, folderId)
+    suspend fun createFolder(categoryId: Long, label: String, memberIds: List<Long>, sortOrder: Int): Long =
+        createFolderAt(categoryId, label, parentFolderId = null, memberIds = memberIds, sortOrder = sortOrder)
+
+    suspend fun createFolderAt(
+        categoryId: Long,
+        label: String,
+        parentFolderId: Long? = null,
+        memberIds: List<Long> = emptyList(),
+        sortOrder: Int? = null
+    ): Long {
+        val resolvedSortOrder = sortOrder ?: if (parentFolderId == null) {
+            bookmarkDao.nextTopLevelSortOrder(categoryId)
+        } else {
+            bookmarkDao.nextChildSortOrder(parentFolderId)
+        }
+        val folder = Bookmark(
+            categoryId = categoryId,
+            label = label,
+            sortOrder = resolvedSortOrder,
+            action = BookmarkAction.Folder,
+            parentFolderId = parentFolderId
+        )
+        val folderId = bookmarkDao.insert(folder.toEntity())
+        if (memberIds.isNotEmpty()) {
+            bookmarkDao.setParentFolders(memberIds, folderId)
+        }
         return folderId
     }
 

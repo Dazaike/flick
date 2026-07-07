@@ -101,19 +101,19 @@ class OverlayService : Service() {
                     },
                     onDismiss = { stopOverlayService() },
                     onReorder = { reordered ->
-                        serviceScope.launch(Dispatchers.IO) {
-                            reordered.forEachIndexed { index, bookmark ->
-                                bookmarkRepository.updateSortOrder(bookmark.id, index)
+                        serviceScope.launch {
+                            withContext(Dispatchers.IO) {
+                                reordered.forEachIndexed { index, bookmark ->
+                                    bookmarkRepository.updateSortOrder(bookmark.id, index)
+                                }
                             }
+                            refreshOverlayItems(itemsFlow)
                         }
                     },
                     onMergeIntoFolder = { dragged, target ->
                         serviceScope.launch {
                             withContext(Dispatchers.IO) { bookmarkRepository.mergeIntoFolder(dragged.id, target.id) }
-                            // Reload so the in-session overlay reflects the new folder immediately,
-                            // rather than only on the next time it's opened.
-                            val refreshed = withContext(Dispatchers.IO) { bookmarkRepository.observeAll().first() }
-                            itemsFlow.value = buildItems(refreshed)
+                            refreshOverlayItems(itemsFlow)
                         }
                     }
                 )
@@ -122,10 +122,6 @@ class OverlayService : Service() {
         return START_NOT_STICKY
     }
 
-    /**
-     * Resolves icons for [bookmarks] and builds the flat item list the overlay renders, including
-     * up to 4 child-icon previews for each folder bookmark.
-     */
     private suspend fun buildItems(bookmarks: List<Bookmark>): List<OverlayBookmarkItem> {
         val icons = iconResolver.resolveBitmaps(this@OverlayService, bookmarks)
         val childrenByFolder = bookmarks
@@ -140,6 +136,11 @@ class OverlayService : Service() {
             }
             OverlayBookmarkItem(bookmark, icons[bookmark.id], childPreview = childPreview)
         }
+    }
+
+    private suspend fun refreshOverlayItems(itemsFlow: MutableStateFlow<List<OverlayBookmarkItem>>) {
+        val refreshed = withContext(Dispatchers.IO) { bookmarkRepository.observeAll().first() }
+        itemsFlow.value = buildItems(refreshed)
     }
 
     /** Availability must be resolved off the main thread; PackageManager calls can block on IPC. */
