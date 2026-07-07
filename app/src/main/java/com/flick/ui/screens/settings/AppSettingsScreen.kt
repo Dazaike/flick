@@ -103,26 +103,6 @@ private fun AnimatedPercentLabel(text: String) {
 }
 
 @Composable
-private fun DirectionSelector(
-    selected: String,
-    onSelectedChange: (String) -> Unit
-) {
-    val directions = listOf("LEFT", "RIGHT", "TOP", "BOTTOM")
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        directions.forEach { dir ->
-            FilterChip(
-                selected = selected == dir,
-                onClick = { onSelectedChange(dir) },
-                label = { Text(dir.lowercase().replaceFirstChar { it.uppercase() }) }
-            )
-        }
-    }
-}
-
-@Composable
 private fun ExpandableSection(
     title: String,
     expanded: Boolean,
@@ -188,8 +168,6 @@ private fun PopupSettingsSection(
     onRightBounceChange: (Boolean) -> Unit,
     rightSlideIn: Boolean,
     onRightSlideInChange: (Boolean) -> Unit,
-    rightIconSlideDirection: String,
-    onRightIconSlideDirectionChange: (String) -> Unit,
     rightPopupYOffset: Float,
     onRightPopupYOffsetChange: (Float) -> Unit,
     onRightPopupYOffsetCommit: () -> Unit,
@@ -197,13 +175,18 @@ private fun PopupSettingsSection(
     onBottomBounceChange: (Boolean) -> Unit,
     bottomSlideUp: Boolean,
     onBottomSlideUpChange: (Boolean) -> Unit,
-    bottomIconSlideDirection: String,
-    onBottomIconSlideDirectionChange: (String) -> Unit,
     showIconBorder: Boolean,
     onShowIconBorderChange: (Boolean) -> Unit,
     iconSpacing: Float,
     onIconSpacingChange: (Float) -> Unit,
-    onIconSpacingCommit: () -> Unit
+    onIconSpacingCommit: () -> Unit,
+    animationsEnabled: Boolean,
+    panelAnimationSpeed: Float,
+    onPanelAnimationSpeedChange: (Float) -> Unit,
+    onPanelAnimationSpeedCommit: () -> Unit,
+    iconAnimationSpeed: Float,
+    onIconAnimationSpeedChange: (Float) -> Unit,
+    onIconAnimationSpeedCommit: () -> Unit
 ) {
     Column {
         ListItem(
@@ -225,6 +208,30 @@ private fun PopupSettingsSection(
             onValueChangeFinished = onPopupOpacityCommit,
             valueRange = 0.3f..1f
         )
+        AnimatedPercentLabel("Panel animation speed: ${(panelAnimationSpeed * 100).toInt()}%")
+        Slider(
+            value = panelAnimationSpeed,
+            onValueChange = onPanelAnimationSpeedChange,
+            onValueChangeFinished = onPanelAnimationSpeedCommit,
+            enabled = animationsEnabled,
+            valueRange = 0.1f..1f
+        )
+        AnimatedPercentLabel("Icon animation speed: ${(iconAnimationSpeed * 100).toInt()}%")
+        Slider(
+            value = iconAnimationSpeed,
+            onValueChange = onIconAnimationSpeedChange,
+            onValueChangeFinished = onIconAnimationSpeedCommit,
+            enabled = animationsEnabled,
+            valueRange = 0.1f..1f
+        )
+        if (!animationsEnabled) {
+            Text(
+                text = "Turn on animations below to adjust speed",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         ListItem(
             headlineContent = { Text("Popup on the right") },
             supportingContent = { Text("Smaller grid anchored to the right edge instead of the bottom sheet") },
@@ -238,17 +245,9 @@ private fun PopupSettingsSection(
             )
             ListItem(
                 headlineContent = { Text("Slide-in animation") },
-                supportingContent = { Text("Slide in overlay and app icons from the right") },
+                supportingContent = { Text("Slide in overlay from the right") },
                 trailingContent = { BouncySwitch(checked = rightSlideIn, onCheckedChange = onRightSlideInChange) }
             )
-            if (rightSlideIn) {
-                Text(
-                    text = "Icon slide direction",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                DirectionSelector(selected = rightIconSlideDirection, onSelectedChange = onRightIconSlideDirectionChange)
-            }
             AnimatedPercentLabel("Vertical Offset (Y-axis): ${rightPopupYOffset.toInt()} dp")
             Slider(
                 value = rightPopupYOffset,
@@ -264,17 +263,9 @@ private fun PopupSettingsSection(
             )
             ListItem(
                 headlineContent = { Text("Slide up animation") },
-                supportingContent = { Text("Slide up overlay from bottom and icons from right") },
+                supportingContent = { Text("Slide up overlay from the bottom") },
                 trailingContent = { BouncySwitch(checked = bottomSlideUp, onCheckedChange = onBottomSlideUpChange) }
             )
-            if (bottomSlideUp) {
-                Text(
-                    text = "Icon slide direction",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                DirectionSelector(selected = bottomIconSlideDirection, onSelectedChange = onBottomIconSlideDirectionChange)
-            }
         }
         ListItem(
             headlineContent = { Text("Show icon border") },
@@ -351,12 +342,12 @@ private fun AnimationSettingsSection(
         exit = fadeOut(motion.flickTween(DURATION_QUICK)) + shrinkVertically(motion.flickSpring())
     ) {
         Column {
-            AnimatedPercentLabel("Animation intensity: ${(animationIntensity * 100).toInt()}%")
+            AnimatedPercentLabel("Animation speed: ${(animationIntensity * 100).toInt()}%")
             Slider(
                 value = animationIntensity,
                 onValueChange = onAnimationIntensityChange,
                 onValueChangeFinished = onAnimationIntensityCommit,
-                valueRange = 0f..1f
+                valueRange = 0.1f..1f
             )
         }
     }
@@ -425,8 +416,6 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     onRightBounceChange = viewModel::setRightBounce,
                     rightSlideIn = uiState.rightSlideIn,
                     onRightSlideInChange = viewModel::setRightSlideIn,
-                    rightIconSlideDirection = uiState.rightIconSlideDirection,
-                    onRightIconSlideDirectionChange = viewModel::setRightIconSlideDirection,
                     rightPopupYOffset = uiState.rightPopupYOffset,
                     onRightPopupYOffsetChange = viewModel::onRightPopupYOffsetChange,
                     onRightPopupYOffsetCommit = viewModel::commitRightPopupYOffset,
@@ -434,13 +423,18 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     onBottomBounceChange = viewModel::setBottomBounce,
                     bottomSlideUp = uiState.bottomSlideUp,
                     onBottomSlideUpChange = viewModel::setBottomSlideUp,
-                    bottomIconSlideDirection = uiState.bottomIconSlideDirection,
-                    onBottomIconSlideDirectionChange = viewModel::setBottomIconSlideDirection,
                     showIconBorder = uiState.showIconBorder,
                     onShowIconBorderChange = viewModel::setShowIconBorder,
                     iconSpacing = uiState.iconSpacing,
                     onIconSpacingChange = viewModel::onIconSpacingChange,
-                    onIconSpacingCommit = viewModel::commitIconSpacing
+                    onIconSpacingCommit = viewModel::commitIconSpacing,
+                    animationsEnabled = uiState.animationsEnabled,
+                    panelAnimationSpeed = uiState.panelAnimationSpeed,
+                    onPanelAnimationSpeedChange = viewModel::onPanelAnimationSpeedChange,
+                    onPanelAnimationSpeedCommit = viewModel::commitPanelAnimationSpeed,
+                    iconAnimationSpeed = uiState.iconAnimationSpeed,
+                    onIconAnimationSpeedChange = viewModel::onIconAnimationSpeedChange,
+                    onIconAnimationSpeedCommit = viewModel::commitIconAnimationSpeed
                 )
             }
 

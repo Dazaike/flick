@@ -11,6 +11,9 @@ import androidx.compose.runtime.compositionLocalOf
 // reads from one place. This is the lever for dialing the "excess animation" pass back down
 // later: flip MotionConfig.enabled or animationIntensity instead of hunting through files.
 
+// [MotionConfig.intensity] is animation speed: 1.0 = baseline timing, higher = faster,
+// lower = slower. Tweens shorten/lengthen duration; springs scale stiffness the same way.
+
 const val DURATION_QUICK = 120
 const val DURATION_MEDIUM = 220
 const val DURATION_SLOW = 350
@@ -22,8 +25,8 @@ data class MotionConfig(
 
 val LocalMotion = compositionLocalOf { MotionConfig() }
 
-private fun scaledDuration(durationMs: Int, intensity: Float): Int =
-    (durationMs * intensity).toInt().coerceAtLeast(1)
+private fun scaledDuration(durationMs: Int, speed: Float): Int =
+    (durationMs / speed.coerceIn(0.1f, 1f)).toInt().coerceAtLeast(1)
 
 fun <T> MotionConfig.flickTween(durationMs: Int, delayMs: Int = 0): FiniteAnimationSpec<T> =
     if (!enabled) {
@@ -42,6 +45,9 @@ fun <T> MotionConfig.flickSpring(
     if (!enabled) {
         snap()
     } else {
-        spring(dampingRatio = dampingRatio, stiffness = stiffness)
+        spring(
+            dampingRatio = dampingRatio,
+            stiffness = (stiffness * intensity.coerceIn(0.1f, 1f)).coerceAtLeast(1f)
+        )
     }
 

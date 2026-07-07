@@ -2,7 +2,6 @@ package com.flick.overlay
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -26,8 +25,8 @@ private val BOTTOM_SLIDE_UP_KEY = booleanPreferencesKey("bottom_slide_up")
 private val RIGHT_BOUNCE_KEY = booleanPreferencesKey("right_bounce")
 private val RIGHT_SLIDE_IN_KEY = booleanPreferencesKey("right_slide_in")
 private val RIGHT_POPUP_Y_OFFSET_KEY = floatPreferencesKey("right_popup_y_offset")
-private val BOTTOM_ICON_SLIDE_DIRECTION_KEY = stringPreferencesKey("bottom_icon_slide_direction")
-private val RIGHT_ICON_SLIDE_DIRECTION_KEY = stringPreferencesKey("right_icon_slide_direction")
+private val PANEL_ANIMATION_SPEED_KEY = floatPreferencesKey("panel_animation_speed")
+private val ICON_ANIMATION_SPEED_KEY = floatPreferencesKey("icon_animation_speed")
 
 /** Single source of truth for default values + Preferences -> [OverlayPrefsData] mapping. */
 private fun androidx.datastore.preferences.core.Preferences.toOverlayPrefsData(): OverlayPrefsData =
@@ -44,8 +43,8 @@ private fun androidx.datastore.preferences.core.Preferences.toOverlayPrefsData()
         rightBounce = this[RIGHT_BOUNCE_KEY] ?: true,
         rightSlideIn = this[RIGHT_SLIDE_IN_KEY] ?: false,
         rightPopupYOffset = this[RIGHT_POPUP_Y_OFFSET_KEY] ?: 0f,
-        bottomIconSlideDirection = this[BOTTOM_ICON_SLIDE_DIRECTION_KEY] ?: "RIGHT",
-        rightIconSlideDirection = this[RIGHT_ICON_SLIDE_DIRECTION_KEY] ?: "RIGHT"
+        panelAnimationSpeed = this[PANEL_ANIMATION_SPEED_KEY] ?: 1f,
+        iconAnimationSpeed = this[ICON_ANIMATION_SPEED_KEY] ?: 1f
     )
 
 @Singleton
@@ -123,16 +122,21 @@ class OverlayPreferences @Inject constructor(
     suspend fun setRightPopupYOffset(offset: Float) {
         context.overlayDataStore.edit { prefs -> prefs[RIGHT_POPUP_Y_OFFSET_KEY] = offset }
     }
-    val bottomIconSlideDirection: Flow<String> = context.overlayDataStore.data.map { it.toOverlayPrefsData().bottomIconSlideDirection }
 
-    suspend fun setBottomIconSlideDirection(direction: String) {
-        context.overlayDataStore.edit { prefs -> prefs[BOTTOM_ICON_SLIDE_DIRECTION_KEY] = direction }
+    val panelAnimationSpeed: Flow<Float> = context.overlayDataStore.data.map { it.toOverlayPrefsData().panelAnimationSpeed }
+
+    suspend fun setPanelAnimationSpeed(speed: Float) {
+        context.overlayDataStore.edit { prefs ->
+            prefs[PANEL_ANIMATION_SPEED_KEY] = speed.coerceIn(0.1f, 1f)
+        }
     }
 
-    val rightIconSlideDirection: Flow<String> = context.overlayDataStore.data.map { it.toOverlayPrefsData().rightIconSlideDirection }
+    val iconAnimationSpeed: Flow<Float> = context.overlayDataStore.data.map { it.toOverlayPrefsData().iconAnimationSpeed }
 
-    suspend fun setRightIconSlideDirection(direction: String) {
-        context.overlayDataStore.edit { prefs -> prefs[RIGHT_ICON_SLIDE_DIRECTION_KEY] = direction }
+    suspend fun setIconAnimationSpeed(speed: Float) {
+        context.overlayDataStore.edit { prefs ->
+            prefs[ICON_ANIMATION_SPEED_KEY] = speed.coerceIn(0.1f, 1f)
+        }
     }
 
     suspend fun getAllPrefs(): OverlayPrefsData = context.overlayDataStore.data.first().toOverlayPrefsData()
@@ -151,8 +155,8 @@ data class OverlayPrefsData(
     val rightBounce: Boolean,
     val rightSlideIn: Boolean,
     val rightPopupYOffset: Float,
-    val bottomIconSlideDirection: String,
-    val rightIconSlideDirection: String
+    val panelAnimationSpeed: Float,
+    val iconAnimationSpeed: Float
 )
 
 

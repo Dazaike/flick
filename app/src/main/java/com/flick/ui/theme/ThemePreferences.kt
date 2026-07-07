@@ -62,6 +62,8 @@ class ThemePreferences @Inject constructor(
     }
 
     suspend fun setAnimationIntensity(intensity: Float) {
-        context.themeDataStore.edit { prefs -> prefs[ANIMATION_INTENSITY_KEY] = intensity }
+        context.themeDataStore.edit { prefs ->
+            prefs[ANIMATION_INTENSITY_KEY] = intensity.coerceIn(0.1f, 1f)
+        }
     }
 }

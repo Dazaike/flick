@@ -88,8 +88,8 @@ class OverlayService : Service() {
                     rightBounce = prefs.rightBounce,
                     rightSlideIn = prefs.rightSlideIn,
                     rightPopupYOffset = prefs.rightPopupYOffset,
-                    bottomIconSlideDirection = prefs.bottomIconSlideDirection,
-                    rightIconSlideDirection = prefs.rightIconSlideDirection,
+                    panelAnimationSpeed = prefs.panelAnimationSpeed,
+                    iconAnimationSpeed = prefs.iconAnimationSpeed,
                     availability = availability,
                     onBookmarkClick = { item ->
                         runCatching {

@@ -28,8 +28,8 @@ data class SettingsUiState(
     val rightBounce: Boolean = true,
     val rightSlideIn: Boolean = false,
     val rightPopupYOffset: Float = 0f,
-    val bottomIconSlideDirection: String = "RIGHT",
-    val rightIconSlideDirection: String = "RIGHT",
+    val panelAnimationSpeed: Float = 1f,
+    val iconAnimationSpeed: Float = 1f,
     val amoledMode: Boolean = false,
     val gridView: Boolean = false,
     val colorMode: ColorMode = ColorMode.DYNAMIC,
@@ -68,8 +68,8 @@ class SettingsViewModel @Inject constructor(
         bind(overlayPreferences.rightBounce) { copy(rightBounce = it) }
         bind(overlayPreferences.rightSlideIn) { copy(rightSlideIn = it) }
         bind(overlayPreferences.rightPopupYOffset) { copy(rightPopupYOffset = it) }
-        bind(overlayPreferences.bottomIconSlideDirection) { copy(bottomIconSlideDirection = it) }
-        bind(overlayPreferences.rightIconSlideDirection) { copy(rightIconSlideDirection = it) }
+        bind(overlayPreferences.panelAnimationSpeed) { copy(panelAnimationSpeed = it) }
+        bind(overlayPreferences.iconAnimationSpeed) { copy(iconAnimationSpeed = it) }
         bind(themePreferences.amoledMode) { copy(amoledMode = it) }
         bind(themePreferences.gridView) { copy(gridView = it) }
         bind(themePreferences.colorMode) { copy(colorMode = it) }
@@ -119,11 +119,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { overlayPreferences.setRightSlideIn(value) }
     }
 
-    fun setRightIconSlideDirection(value: String) {
-        _uiState.update { it.copy(rightIconSlideDirection = value) }
-        viewModelScope.launch { overlayPreferences.setRightIconSlideDirection(value) }
-    }
-
     fun onRightPopupYOffsetChange(value: Float) {
         _uiState.update { it.copy(rightPopupYOffset = value) }
     }
@@ -142,11 +137,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { overlayPreferences.setBottomSlideUp(value) }
     }
 
-    fun setBottomIconSlideDirection(value: String) {
-        _uiState.update { it.copy(bottomIconSlideDirection = value) }
-        viewModelScope.launch { overlayPreferences.setBottomIconSlideDirection(value) }
-    }
-
     fun setShowIconBorder(value: Boolean) {
         _uiState.update { it.copy(showIconBorder = value) }
         viewModelScope.launch { overlayPreferences.setShowIconBorder(value) }
@@ -158,6 +148,22 @@ class SettingsViewModel @Inject constructor(
 
     fun commitIconSpacing() {
         viewModelScope.launch { overlayPreferences.setIconSpacing(_uiState.value.iconSpacing) }
+    }
+
+    fun onPanelAnimationSpeedChange(value: Float) {
+        _uiState.update { it.copy(panelAnimationSpeed = value) }
+    }
+
+    fun commitPanelAnimationSpeed() {
+        viewModelScope.launch { overlayPreferences.setPanelAnimationSpeed(_uiState.value.panelAnimationSpeed) }
+    }
+
+    fun onIconAnimationSpeedChange(value: Float) {
+        _uiState.update { it.copy(iconAnimationSpeed = value) }
+    }
+
+    fun commitIconAnimationSpeed() {
+        viewModelScope.launch { overlayPreferences.setIconAnimationSpeed(_uiState.value.iconAnimationSpeed) }
     }
 
     fun setColorMode(value: ColorMode) {
