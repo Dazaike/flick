@@ -22,6 +22,7 @@ Android quick-launch overlay for pinning apps, shortcuts, widgets, contacts, URL
 - Overall panel scale setting (70%–150%) in Popup settings
 - Scales icons, labels, spacing, and panel chrome together
 - Vertical offset remains absolute screen dp
+- Release APKs are now signed (fixes install certificate errors)
 
 ### [0.4.7](https://github.com/Dazaike/flick/releases/tag/v0.4.7)
 
@@ -38,7 +39,9 @@ Android quick-launch overlay for pinning apps, shortcuts, widgets, contacts, URL
 
 ## Install
 
-Download the latest APK from [GitHub Releases](https://github.com/Dazaike/flick/releases) and sideload it on your device. Release builds are unsigned; allow installation from unknown sources if prompted.
+Download the latest APK from [GitHub Releases](https://github.com/Dazaike/flick/releases) and sideload it on your device. Release APKs are signed with the project keystore in [`keystore/`](keystore/). Allow installation from unknown sources if prompted.
+
+If an upgrade fails with a signature or certificate error (for example after installing an older unsigned or debug build), uninstall the existing Flick app first, then install the new APK.
 
 ## Build
 
