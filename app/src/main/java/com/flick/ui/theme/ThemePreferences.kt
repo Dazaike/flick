@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -66,4 +67,25 @@ class ThemePreferences @Inject constructor(
             prefs[ANIMATION_INTENSITY_KEY] = intensity.coerceIn(0.1f, 1f)
         }
     }
+
+    suspend fun getAllPrefs(): ThemePrefsData =
+        context.themeDataStore.data.map { prefs ->
+            ThemePrefsData(
+                amoledMode = prefs[AMOLED_MODE_KEY] ?: false,
+                gridView = prefs[GRID_VIEW_KEY] ?: false,
+                colorMode = prefs[COLOR_MODE_KEY]
+                    ?.let { runCatching { ColorMode.valueOf(it) }.getOrNull() }
+                    ?: ColorMode.DYNAMIC,
+                animationsEnabled = prefs[ANIMATIONS_ENABLED_KEY] ?: true,
+                animationIntensity = prefs[ANIMATION_INTENSITY_KEY] ?: 1f
+            )
+        }.first()
 }
+
+data class ThemePrefsData(
+    val amoledMode: Boolean,
+    val gridView: Boolean,
+    val colorMode: ColorMode,
+    val animationsEnabled: Boolean,
+    val animationIntensity: Float
+)
