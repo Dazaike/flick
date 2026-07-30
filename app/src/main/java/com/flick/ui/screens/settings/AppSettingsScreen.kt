@@ -22,18 +22,22 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,7 +58,9 @@ import com.flick.ui.theme.DURATION_QUICK
 import com.flick.ui.theme.LocalMotion
 import com.flick.ui.theme.flickSpring
 import com.flick.ui.theme.flickTween
-
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 @Composable
 private fun SectionHeader(title: String, expanded: Boolean, onToggle: () -> Unit) {
     Row(
@@ -180,6 +186,9 @@ private fun PopupSettingsSection(
     iconSpacing: Float,
     onIconSpacingChange: (Float) -> Unit,
     onIconSpacingCommit: () -> Unit,
+    panelScale: Float,
+    onPanelScaleChange: (Float) -> Unit,
+    onPanelScaleCommit: () -> Unit,
     animationsEnabled: Boolean,
     panelAnimationSpeed: Float,
     onPanelAnimationSpeedChange: (Float) -> Unit,
@@ -279,6 +288,13 @@ private fun PopupSettingsSection(
             onValueChangeFinished = onIconSpacingCommit,
             valueRange = 0f..30f
         )
+        AnimatedPercentLabel("Panel scale: ${(panelScale * 100).toInt()}%")
+        Slider(
+            value = panelScale,
+            onValueChange = onPanelScaleChange,
+            onValueChangeFinished = onPanelScaleCommit,
+            valueRange = 0.7f..1.5f
+        )
     }
 }
 
@@ -370,6 +386,46 @@ private fun FallbackTriggerSection(
 }
 
 @Composable
+private fun BackupSettingsSection(
+    backupInProgress: Boolean,
+    onExportClick: () -> Unit,
+    onImportClick: () -> Unit
+) {
+    Column {
+        Text(
+            text = "Save bookmarks, folders, categories, and settings to a file you can restore later " +
+                "(for example after reinstalling).",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Button(
+            onClick = onExportClick,
+            enabled = !backupInProgress,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+        ) {
+            Text(if (backupInProgress) "Working…" else "Export backup")
+        }
+        OutlinedButton(
+            onClick = onImportClick,
+            enabled = !backupInProgress,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+        ) {
+            Text("Import backup")
+        }
+        Text(
+            text = "Import replaces all current bookmarks and settings.",
+            modifier = Modifier.padding(top = 8.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
 fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
@@ -379,7 +435,71 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
 
     var popupSectionExpanded by remember { mutableStateOf(true) }
     var appearanceSectionExpanded by remember { mutableStateOf(true) }
+    var backupSectionExpanded by remember { mutableStateOf(true) }
     var fallbackSectionExpanded by remember { mutableStateOf(true) }
+    var showImportConfirm by remember { mutableStateOf(false) }
+    var pendingImportUri by remember { mutableStateOf<android.net.Uri?>(null) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        if (uri != null) viewModel.exportBackup(uri)
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            pendingImportUri = uri
+            showImportConfirm = true
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is SettingsEvent.Message ->
+                    Toast.makeText(context, event.text, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    if (showImportConfirm) {
+        AlertDialog(
+            onDismissRequest = {
+                showImportConfirm = false
+                pendingImportUri = null
+            },
+            title = { Text("Replace all data?") },
+            text = {
+                Text(
+                    "Importing a backup will delete your current bookmarks, folders, categories, " +
+                        "and settings, then restore from the file."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val uri = pendingImportUri
+                        showImportConfirm = false
+                        pendingImportUri = null
+                        if (uri != null) viewModel.importBackup(uri)
+                    }
+                ) {
+                    Text("Import")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showImportConfirm = false
+                        pendingImportUri = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Flick settings") }) }
@@ -428,6 +548,9 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     iconSpacing = uiState.iconSpacing,
                     onIconSpacingChange = viewModel::onIconSpacingChange,
                     onIconSpacingCommit = viewModel::commitIconSpacing,
+                    panelScale = uiState.panelScale,
+                    onPanelScaleChange = viewModel::onPanelScaleChange,
+                    onPanelScaleCommit = viewModel::commitPanelScale,
                     animationsEnabled = uiState.animationsEnabled,
                     panelAnimationSpeed = uiState.panelAnimationSpeed,
                     onPanelAnimationSpeedChange = viewModel::onPanelAnimationSpeedChange,
@@ -460,6 +583,23 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 onAnimationIntensityChange = viewModel::onAnimationIntensityChange,
                 onAnimationIntensityCommit = viewModel::commitAnimationIntensity
             )
+
+            ExpandableSection(
+                title = "Backup & restore",
+                expanded = backupSectionExpanded,
+                onToggle = { backupSectionExpanded = !backupSectionExpanded }
+            ) {
+                BackupSettingsSection(
+                    backupInProgress = uiState.backupInProgress,
+                    onExportClick = {
+                        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                        exportLauncher.launch("flick-backup-$stamp.zip")
+                    },
+                    onImportClick = {
+                        importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+                    }
+                )
+            }
 
             ExpandableSection(
                 title = "Fallback trigger: edge swipe",

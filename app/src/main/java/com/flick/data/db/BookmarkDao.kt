@@ -18,6 +18,9 @@ interface BookmarkDao {
     @Query("SELECT * FROM bookmarks ORDER BY categoryId, sortOrder")
     fun observeAll(): Flow<List<BookmarkEntity>>
 
+    @Query("SELECT * FROM bookmarks ORDER BY categoryId, sortOrder")
+    suspend fun getAll(): List<BookmarkEntity>
+
     /** Top-level bookmarks only (folder children are hidden until their folder is expanded). */
     @Query("SELECT * FROM bookmarks WHERE categoryId = :categoryId AND parentFolderId IS NULL ORDER BY sortOrder")
     fun observeByCategory(categoryId: Long): Flow<List<BookmarkEntity>>
@@ -61,4 +64,7 @@ interface BookmarkDao {
 
     @Query("SELECT COALESCE(MAX(sortOrder), -1) + 1 FROM bookmarks WHERE parentFolderId = :folderId")
     suspend fun nextChildSortOrder(folderId: Long): Int
+
+    @Query("DELETE FROM bookmarks")
+    suspend fun deleteAll()
 }

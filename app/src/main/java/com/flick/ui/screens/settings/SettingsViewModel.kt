@@ -1,14 +1,19 @@
 package com.flick.ui.screens.settings
 
+import android.net.Uri
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.flick.data.backup.BackupRepository
 import com.flick.overlay.OverlayPreferences
 import com.flick.ui.theme.ColorMode
 import com.flick.ui.theme.ThemePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -30,12 +35,18 @@ data class SettingsUiState(
     val rightPopupYOffset: Float = 0f,
     val panelAnimationSpeed: Float = 1f,
     val iconAnimationSpeed: Float = 1f,
+    val panelScale: Float = 1f,
     val amoledMode: Boolean = false,
     val gridView: Boolean = false,
     val colorMode: ColorMode = ColorMode.DYNAMIC,
     val animationsEnabled: Boolean = true,
-    val animationIntensity: Float = 1f
+    val animationIntensity: Float = 1f,
+    val backupInProgress: Boolean = false
 )
+
+sealed interface SettingsEvent {
+    data class Message(val text: String) : SettingsEvent
+}
 
 /**
  * Backs [AppSettingsScreen]'s preference-driven UI. Collects every [OverlayPreferences]/
@@ -49,11 +60,15 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val overlayPreferences: OverlayPreferences,
-    private val themePreferences: ThemePreferences
+    private val themePreferences: ThemePreferences,
+    private val backupRepository: BackupRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    private val _events = MutableSharedFlow<SettingsEvent>(extraBufferCapacity = 1)
+    val events: SharedFlow<SettingsEvent> = _events.asSharedFlow()
 
     init {
         bind(overlayPreferences.showAppNames) { copy(showAppNames = it) }
@@ -70,6 +85,7 @@ class SettingsViewModel @Inject constructor(
         bind(overlayPreferences.rightPopupYOffset) { copy(rightPopupYOffset = it) }
         bind(overlayPreferences.panelAnimationSpeed) { copy(panelAnimationSpeed = it) }
         bind(overlayPreferences.iconAnimationSpeed) { copy(iconAnimationSpeed = it) }
+        bind(overlayPreferences.panelScale) { copy(panelScale = it) }
         bind(themePreferences.amoledMode) { copy(amoledMode = it) }
         bind(themePreferences.gridView) { copy(gridView = it) }
         bind(themePreferences.colorMode) { copy(colorMode = it) }
@@ -150,6 +166,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { overlayPreferences.setIconSpacing(_uiState.value.iconSpacing) }
     }
 
+    fun onPanelScaleChange(value: Float) {
+        _uiState.update { it.copy(panelScale = value) }
+    }
+
+    fun commitPanelScale() {
+        viewModelScope.launch { overlayPreferences.setPanelScale(_uiState.value.panelScale) }
+    }
+
     fun onPanelAnimationSpeedChange(value: Float) {
         _uiState.update { it.copy(panelAnimationSpeed = value) }
     }
@@ -192,5 +216,45 @@ class SettingsViewModel @Inject constructor(
 
     fun commitAnimationIntensity() {
         viewModelScope.launch { themePreferences.setAnimationIntensity(_uiState.value.animationIntensity) }
+    }
+
+    fun exportBackup(uri: Uri) {
+        if (_uiState.value.backupInProgress) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(backupInProgress = true) }
+            runCatching { backupRepository.exportTo(uri) }
+                .onSuccess { result ->
+                    _events.emit(
+                        SettingsEvent.Message(
+                            "Exported ${result.bookmarkCount} bookmarks" +
+                                if (result.iconCount > 0) " (${result.iconCount} icons)" else ""
+                        )
+                    )
+                }
+                .onFailure {
+                    _events.emit(SettingsEvent.Message("Export failed: ${it.message ?: "unknown error"}"))
+                }
+            _uiState.update { it.copy(backupInProgress = false) }
+        }
+    }
+
+    fun importBackup(uri: Uri) {
+        if (_uiState.value.backupInProgress) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(backupInProgress = true) }
+            runCatching { backupRepository.importFrom(uri) }
+                .onSuccess { result ->
+                    _events.emit(
+                        SettingsEvent.Message(
+                            "Imported ${result.bookmarkCount} bookmarks" +
+                                if (result.iconCount > 0) " (${result.iconCount} icons)" else ""
+                        )
+                    )
+                }
+                .onFailure {
+                    _events.emit(SettingsEvent.Message("Import failed: ${it.message ?: "unknown error"}"))
+                }
+            _uiState.update { it.copy(backupInProgress = false) }
+        }
     }
 }
