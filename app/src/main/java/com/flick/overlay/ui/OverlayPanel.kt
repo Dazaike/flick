@@ -1,6 +1,5 @@
 package com.flick.overlay.ui
 
-import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -16,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -28,12 +28,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.flick.ui.theme.MotionConfig
 import com.flick.ui.theme.flickSpring
 import com.flick.ui.theme.flickTween
-import kotlin.math.roundToInt
 
 /** Where the bookmark popup panel is anchored on screen. */
 enum class OverlayPanelPlacement {
@@ -53,6 +53,9 @@ data class OverlayPanelMotion(
 /**
  * Full-screen scrim plus a bookmark panel. The panel is always composed at its final width and
  * height; motion is alpha plus off-screen translation only (never scale).
+ *
+ * [panelScale] multiplies [LocalDensity] for the panel chrome and content so icons, labels,
+ * spacing, and panel size resize together. Vertical Y offset stays in parent density.
  */
 @Composable
 fun OverlayScrimWithPanel(
@@ -64,6 +67,7 @@ fun OverlayScrimWithPanel(
     panelOpacity: Float,
     rightPanelWidth: Dp = 150.dp,
     rightPanelYOffset: Dp = 0.dp,
+    panelScale: Float = 1f,
     onScrimClick: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable (iconsReady: Boolean) -> Unit
@@ -97,8 +101,15 @@ fun OverlayScrimWithPanel(
         label = "overlayPanelSlide"
     )
 
-    val density = LocalDensity.current
-    val rightSlidePx = with(density) { rightPanelWidth.toPx() }
+    val parentDensity = LocalDensity.current
+    val scaledDensity = remember(parentDensity, panelScale) {
+        Density(
+            density = parentDensity.density * panelScale,
+            fontScale = parentDensity.fontScale
+        )
+    }
+    // Slide distance must match the scaled panel width so motion stays correct at non-1.0 scale.
+    val rightSlidePx = with(scaledDensity) { rightPanelWidth.toPx() }
     var bottomSlidePx by remember { mutableFloatStateOf(0f) }
 
     val panelShape = when (placement) {
@@ -135,20 +146,17 @@ fun OverlayScrimWithPanel(
         )
 
         if (shown || panelAlpha > 0f) {
-            val panelModifier = when (placement) {
+            // Alignment + Y offset use parent density so vertical offset stays absolute screen dp.
+            val anchorModifier = when (placement) {
                 OverlayPanelPlacement.Right -> Modifier
                     .align(Alignment.CenterEnd)
-                    .width(rightPanelWidth)
-                    .wrapContentHeight()
                     .offset(y = rightPanelYOffset)
                 OverlayPanelPlacement.Bottom -> Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .wrapContentHeight()
             }
 
             Box(
-                modifier = panelModifier
+                modifier = anchorModifier
                     .onSizeChanged {
                         if (placement == OverlayPanelPlacement.Bottom) {
                             bottomSlidePx = it.height.toFloat()
@@ -160,11 +168,25 @@ fun OverlayScrimWithPanel(
                         this.translationX = translationX
                         this.translationY = translationY
                     }
-                    .clip(panelShape)
-                    .background(panelColor)
-                    .clickable(enabled = false) {}
             ) {
-                content(iconsReady)
+                CompositionLocalProvider(LocalDensity provides scaledDensity) {
+                    val sizeModifier = when (placement) {
+                        OverlayPanelPlacement.Right -> Modifier
+                            .width(rightPanelWidth)
+                            .wrapContentHeight()
+                        OverlayPanelPlacement.Bottom -> Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight()
+                    }
+                    Box(
+                        modifier = sizeModifier
+                            .clip(panelShape)
+                            .background(panelColor)
+                            .clickable(enabled = false) {}
+                    ) {
+                        content(iconsReady)
+                    }
+                }
             }
         }
     }

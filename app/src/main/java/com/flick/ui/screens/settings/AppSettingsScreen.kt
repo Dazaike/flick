@@ -180,6 +180,9 @@ private fun PopupSettingsSection(
     iconSpacing: Float,
     onIconSpacingChange: (Float) -> Unit,
     onIconSpacingCommit: () -> Unit,
+    panelScale: Float,
+    onPanelScaleChange: (Float) -> Unit,
+    onPanelScaleCommit: () -> Unit,
     animationsEnabled: Boolean,
     panelAnimationSpeed: Float,
     onPanelAnimationSpeedChange: (Float) -> Unit,
@@ -278,6 +281,13 @@ private fun PopupSettingsSection(
             onValueChange = onIconSpacingChange,
             onValueChangeFinished = onIconSpacingCommit,
             valueRange = 0f..30f
+        )
+        AnimatedPercentLabel("Panel scale: ${(panelScale * 100).toInt()}%")
+        Slider(
+            value = panelScale,
+            onValueChange = onPanelScaleChange,
+            onValueChangeFinished = onPanelScaleCommit,
+            valueRange = 0.7f..1.5f
         )
     }
 }
@@ -428,6 +438,9 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     iconSpacing = uiState.iconSpacing,
                     onIconSpacingChange = viewModel::onIconSpacingChange,
                     onIconSpacingCommit = viewModel::commitIconSpacing,
+                    panelScale = uiState.panelScale,
+                    onPanelScaleChange = viewModel::onPanelScaleChange,
+                    onPanelScaleCommit = viewModel::commitPanelScale,
                     animationsEnabled = uiState.animationsEnabled,
                     panelAnimationSpeed = uiState.panelAnimationSpeed,
                     onPanelAnimationSpeedChange = viewModel::onPanelAnimationSpeedChange,

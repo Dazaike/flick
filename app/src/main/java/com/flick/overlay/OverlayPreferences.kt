@@ -27,6 +27,7 @@ private val RIGHT_SLIDE_IN_KEY = booleanPreferencesKey("right_slide_in")
 private val RIGHT_POPUP_Y_OFFSET_KEY = floatPreferencesKey("right_popup_y_offset")
 private val PANEL_ANIMATION_SPEED_KEY = floatPreferencesKey("panel_animation_speed")
 private val ICON_ANIMATION_SPEED_KEY = floatPreferencesKey("icon_animation_speed")
+private val PANEL_SCALE_KEY = floatPreferencesKey("panel_scale")
 
 /** Single source of truth for default values + Preferences -> [OverlayPrefsData] mapping. */
 private fun androidx.datastore.preferences.core.Preferences.toOverlayPrefsData(): OverlayPrefsData =
@@ -44,7 +45,8 @@ private fun androidx.datastore.preferences.core.Preferences.toOverlayPrefsData()
         rightSlideIn = this[RIGHT_SLIDE_IN_KEY] ?: false,
         rightPopupYOffset = this[RIGHT_POPUP_Y_OFFSET_KEY] ?: 0f,
         panelAnimationSpeed = this[PANEL_ANIMATION_SPEED_KEY] ?: 1f,
-        iconAnimationSpeed = this[ICON_ANIMATION_SPEED_KEY] ?: 1f
+        iconAnimationSpeed = this[ICON_ANIMATION_SPEED_KEY] ?: 1f,
+        panelScale = this[PANEL_SCALE_KEY] ?: 1f
     )
 
 @Singleton
@@ -139,6 +141,15 @@ class OverlayPreferences @Inject constructor(
         }
     }
 
+    /** Overall overlay panel scale. 1f = 100%; coerced to 0.7f..1.5f (70%–150%). */
+    val panelScale: Flow<Float> = context.overlayDataStore.data.map { it.toOverlayPrefsData().panelScale }
+
+    suspend fun setPanelScale(scale: Float) {
+        context.overlayDataStore.edit { prefs ->
+            prefs[PANEL_SCALE_KEY] = scale.coerceIn(0.7f, 1.5f)
+        }
+    }
+
     suspend fun getAllPrefs(): OverlayPrefsData = context.overlayDataStore.data.first().toOverlayPrefsData()
 }
 
@@ -156,7 +167,8 @@ data class OverlayPrefsData(
     val rightSlideIn: Boolean,
     val rightPopupYOffset: Float,
     val panelAnimationSpeed: Float,
-    val iconAnimationSpeed: Float
+    val iconAnimationSpeed: Float,
+    val panelScale: Float
 )
 
 

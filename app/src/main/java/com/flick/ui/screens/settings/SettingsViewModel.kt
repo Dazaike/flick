@@ -30,6 +30,7 @@ data class SettingsUiState(
     val rightPopupYOffset: Float = 0f,
     val panelAnimationSpeed: Float = 1f,
     val iconAnimationSpeed: Float = 1f,
+    val panelScale: Float = 1f,
     val amoledMode: Boolean = false,
     val gridView: Boolean = false,
     val colorMode: ColorMode = ColorMode.DYNAMIC,
@@ -70,6 +71,7 @@ class SettingsViewModel @Inject constructor(
         bind(overlayPreferences.rightPopupYOffset) { copy(rightPopupYOffset = it) }
         bind(overlayPreferences.panelAnimationSpeed) { copy(panelAnimationSpeed = it) }
         bind(overlayPreferences.iconAnimationSpeed) { copy(iconAnimationSpeed = it) }
+        bind(overlayPreferences.panelScale) { copy(panelScale = it) }
         bind(themePreferences.amoledMode) { copy(amoledMode = it) }
         bind(themePreferences.gridView) { copy(gridView = it) }
         bind(themePreferences.colorMode) { copy(colorMode = it) }
@@ -148,6 +150,14 @@ class SettingsViewModel @Inject constructor(
 
     fun commitIconSpacing() {
         viewModelScope.launch { overlayPreferences.setIconSpacing(_uiState.value.iconSpacing) }
+    }
+
+    fun onPanelScaleChange(value: Float) {
+        _uiState.update { it.copy(panelScale = value) }
+    }
+
+    fun commitPanelScale() {
+        viewModelScope.launch { overlayPreferences.setPanelScale(_uiState.value.panelScale) }
     }
 
     fun onPanelAnimationSpeedChange(value: Float) {

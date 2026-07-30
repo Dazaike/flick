@@ -90,6 +90,7 @@ class OverlayService : Service() {
                     rightPopupYOffset = prefs.rightPopupYOffset,
                     panelAnimationSpeed = prefs.panelAnimationSpeed,
                     iconAnimationSpeed = prefs.iconAnimationSpeed,
+                    panelScale = prefs.panelScale,
                     availability = availability,
                     onBookmarkClick = { item ->
                         runCatching {

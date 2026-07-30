@@ -43,6 +43,7 @@ fun OverlayRoot(
     rightPopupYOffset: Float = 0f,
     panelAnimationSpeed: Float = 1f,
     iconAnimationSpeed: Float = 1f,
+    panelScale: Float = 1f,
     availability: Map<Long, Boolean> = emptyMap(),
     onBookmarkClick: (OverlayBookmarkItem) -> Unit,
     onDismiss: () -> Unit,
@@ -98,6 +99,7 @@ fun OverlayRoot(
             scrimAlpha = scrimAlpha,
             panelOpacity = popupOpacity,
             rightPanelYOffset = rightPopupYOffset.dp,
+            panelScale = panelScale,
             onScrimClick = { shown = false }
         ) { iconsReady ->
             CompositionLocalProvider(LocalMotion provides iconMotionConfig) {
