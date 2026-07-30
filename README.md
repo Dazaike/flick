@@ -2,12 +2,13 @@
 
 Android quick-launch overlay for pinning apps, shortcuts, widgets, contacts, URLs, and settings panels behind an edge gesture or assistant trigger.
 
-**Latest release:** [v0.4.8](https://github.com/Dazaike/flick/releases/tag/v0.4.8)
+**Latest release:** [v0.4.9](https://github.com/Dazaike/flick/releases/tag/v0.4.9)
 
 ## Features
 
 - System overlay grid with smooth panel and icon animations
 - Overall panel scale control (70%–150%) in settings
+- Backup & restore for bookmarks and settings
 - Long-press drag-and-drop reordering in the overlay and main grid
 - Drag-to-merge folders in the main app
 - App, shortcut, widget, contact, URL, and settings-panel pickers
@@ -16,6 +17,10 @@ Android quick-launch overlay for pinning apps, shortcuts, widgets, contacts, URL
 - Edge-gesture fallback when the assistant role is unavailable
 
 ## Changelog
+
+### [0.4.9](https://github.com/Dazaike/flick/releases/tag/v0.4.9)
+
+- Backup & restore in Settings (export/import a zip of bookmarks, folders, categories, icons, and preferences)
 
 ### [0.4.8](https://github.com/Dazaike/flick/releases/tag/v0.4.8)
 
