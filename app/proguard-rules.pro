@@ -16,3 +16,9 @@
 
 # Hilt / Dagger generated code
 -dontwarn com.google.errorprone.annotations.**
+
+# These services are named from voice_interaction_service.xml. Android resolves
+# them by their original class names before the Assistant role is granted.
+-keep class com.flick.trigger.FlickVoiceInteractionService { *; }
+-keep class com.flick.trigger.FlickVoiceInteractionSessionService { *; }
+-keep class com.flick.trigger.NoOpRecognitionService { *; }
