@@ -30,6 +30,7 @@ data class SettingsUiState(
     val rightPopupYOffset: Float = 0f,
     val panelAnimationSpeed: Float = 1f,
     val iconAnimationSpeed: Float = 1f,
+    val menuScale: Float = 1f,
     val amoledMode: Boolean = false,
     val gridView: Boolean = false,
     val colorMode: ColorMode = ColorMode.DYNAMIC,
@@ -70,6 +71,7 @@ class SettingsViewModel @Inject constructor(
         bind(overlayPreferences.rightPopupYOffset) { copy(rightPopupYOffset = it) }
         bind(overlayPreferences.panelAnimationSpeed) { copy(panelAnimationSpeed = it) }
         bind(overlayPreferences.iconAnimationSpeed) { copy(iconAnimationSpeed = it) }
+        bind(overlayPreferences.menuScale) { copy(menuScale = it) }
         bind(themePreferences.amoledMode) { copy(amoledMode = it) }
         bind(themePreferences.gridView) { copy(gridView = it) }
         bind(themePreferences.colorMode) { copy(colorMode = it) }
@@ -164,6 +166,14 @@ class SettingsViewModel @Inject constructor(
 
     fun commitIconAnimationSpeed() {
         viewModelScope.launch { overlayPreferences.setIconAnimationSpeed(_uiState.value.iconAnimationSpeed) }
+    }
+
+    fun onMenuScaleChange(value: Float) {
+        _uiState.update { it.copy(menuScale = value) }
+    }
+
+    fun commitMenuScale() {
+        viewModelScope.launch { overlayPreferences.setMenuScale(_uiState.value.menuScale) }
     }
 
     fun setColorMode(value: ColorMode) {

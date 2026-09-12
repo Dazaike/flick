@@ -123,12 +123,21 @@ private fun ExpandableSection(
 @Composable
 private fun AssistantTriggerSection(
     roleHeld: Boolean,
-    onRoleRequestResult: () -> Unit
+    onRoleRequestResult: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val roleRequestLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
-    ) { onRoleRequestResult() }
+    ) {
+        val updatedRoleHeld = AssistantRoleHelper.isRoleHeld(context)
+        onRoleRequestResult(updatedRoleHeld)
+        if (!updatedRoleHeld) {
+            runCatching { context.startActivity(AssistantRoleHelper.createAssistantSettingsIntent(context)) }
+                .onFailure {
+                    Toast.makeText(context, "Couldn't open Assistant settings", Toast.LENGTH_SHORT).show()
+                }
+        }
+    }
 
     Text("Primary trigger: Assistant gesture")
     Text(if (roleHeld) "Flick currently holds the Assistant role." else "Assistant role not held.")
@@ -186,7 +195,10 @@ private fun PopupSettingsSection(
     onPanelAnimationSpeedCommit: () -> Unit,
     iconAnimationSpeed: Float,
     onIconAnimationSpeedChange: (Float) -> Unit,
-    onIconAnimationSpeedCommit: () -> Unit
+    onIconAnimationSpeedCommit: () -> Unit,
+    menuScale: Float,
+    onMenuScaleChange: (Float) -> Unit,
+    onMenuScaleCommit: () -> Unit
 ) {
     Column {
         ListItem(
@@ -278,6 +290,13 @@ private fun PopupSettingsSection(
             onValueChange = onIconSpacingChange,
             onValueChangeFinished = onIconSpacingCommit,
             valueRange = 0f..30f
+        )
+        AnimatedPercentLabel("Menu scale: ${(menuScale * 100).toInt()}%")
+        Slider(
+            value = menuScale,
+            onValueChange = onMenuScaleChange,
+            onValueChangeFinished = onMenuScaleCommit,
+            valueRange = 0.6f..1.4f
         )
     }
 }
@@ -393,7 +412,7 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         ) {
             AssistantTriggerSection(
                 roleHeld = roleHeld,
-                onRoleRequestResult = { roleHeld = AssistantRoleHelper.isRoleHeld(context) }
+                onRoleRequestResult = { roleHeld = it }
             )
 
             ExpandableSection(
@@ -434,7 +453,10 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     onPanelAnimationSpeedCommit = viewModel::commitPanelAnimationSpeed,
                     iconAnimationSpeed = uiState.iconAnimationSpeed,
                     onIconAnimationSpeedChange = viewModel::onIconAnimationSpeedChange,
-                    onIconAnimationSpeedCommit = viewModel::commitIconAnimationSpeed
+                    onIconAnimationSpeedCommit = viewModel::commitIconAnimationSpeed,
+                    menuScale = uiState.menuScale,
+                    onMenuScaleChange = viewModel::onMenuScaleChange,
+                    onMenuScaleCommit = viewModel::commitMenuScale
                 )
             }
 

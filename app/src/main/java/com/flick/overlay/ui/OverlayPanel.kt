@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -30,6 +31,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
 import com.flick.ui.theme.MotionConfig
 import com.flick.ui.theme.flickSpring
 import com.flick.ui.theme.flickTween
@@ -64,6 +67,7 @@ fun OverlayScrimWithPanel(
     panelOpacity: Float,
     rightPanelWidth: Dp = 150.dp,
     rightPanelYOffset: Dp = 0.dp,
+    menuScale: Float = 1f,
     onScrimClick: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable (iconsReady: Boolean) -> Unit
@@ -98,13 +102,13 @@ fun OverlayScrimWithPanel(
     )
 
     val density = LocalDensity.current
-    val rightSlidePx = with(density) { rightPanelWidth.toPx() }
+    val scaledDensity = remember(density, menuScale) {
+        Density(density.density * menuScale.coerceIn(0.6f, 1.4f), density.fontScale)
+    }
+    val rightSlidePx = with(scaledDensity) { rightPanelWidth.toPx() }
+    val rightYOffsetPx = with(density) { rightPanelYOffset.roundToPx() }
     var bottomSlidePx by remember { mutableFloatStateOf(0f) }
 
-    val panelShape = when (placement) {
-        OverlayPanelPlacement.Right -> RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)
-        OverlayPanelPlacement.Bottom -> RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-    }
     val panelColor = MaterialTheme.colorScheme
         .surfaceColorAtElevation(8.dp)
         .copy(alpha = panelOpacity)
@@ -135,36 +139,47 @@ fun OverlayScrimWithPanel(
         )
 
         if (shown || panelAlpha > 0f) {
-            val panelModifier = when (placement) {
+            val placementModifier = when (placement) {
                 OverlayPanelPlacement.Right -> Modifier
                     .align(Alignment.CenterEnd)
-                    .width(rightPanelWidth)
-                    .wrapContentHeight()
-                    .offset(y = rightPanelYOffset)
-                OverlayPanelPlacement.Bottom -> Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .wrapContentHeight()
+                    .offset { IntOffset(0, rightYOffsetPx) }
+                OverlayPanelPlacement.Bottom -> Modifier.align(Alignment.BottomCenter)
             }
 
-            Box(
-                modifier = panelModifier
-                    .onSizeChanged {
-                        if (placement == OverlayPanelPlacement.Bottom) {
-                            bottomSlidePx = it.height.toFloat()
+            CompositionLocalProvider(LocalDensity provides scaledDensity) {
+                val panelShape = when (placement) {
+                    OverlayPanelPlacement.Right -> RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)
+                    OverlayPanelPlacement.Bottom -> RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+                }
+
+                val panelModifier = when (placement) {
+                    OverlayPanelPlacement.Right -> placementModifier
+                        .width(rightPanelWidth)
+                        .wrapContentHeight()
+                    OverlayPanelPlacement.Bottom -> placementModifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                }
+
+                Box(
+                    modifier = panelModifier
+                        .onSizeChanged {
+                            if (placement == OverlayPanelPlacement.Bottom) {
+                                bottomSlidePx = it.height.toFloat()
+                            }
                         }
-                    }
-                    .graphicsLayer {
-                        alpha = panelContentAlpha
-                        clip = false
-                        this.translationX = translationX
-                        this.translationY = translationY
-                    }
-                    .clip(panelShape)
-                    .background(panelColor)
-                    .clickable(enabled = false) {}
-            ) {
-                content(iconsReady)
+                        .graphicsLayer {
+                            alpha = panelContentAlpha
+                            clip = false
+                            this.translationX = translationX
+                            this.translationY = translationY
+                        }
+                        .clip(panelShape)
+                        .background(panelColor)
+                        .clickable(enabled = false) {}
+                ) {
+                    content(iconsReady)
+                }
             }
         }
     }
