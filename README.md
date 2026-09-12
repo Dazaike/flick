@@ -5,6 +5,7 @@ Android quick-launch overlay for pinning apps, shortcuts, widgets, contacts, URL
 ## Features
 
 - System overlay grid with smooth panel and icon animations
+- Adjustable overlay menu scale
 - Long-press drag-and-drop reordering in the overlay and main grid
 - Drag-to-merge folders in the main app
 - App, shortcut, widget, contact, URL, and settings-panel pickers
@@ -20,7 +21,7 @@ Android quick-launch overlay for pinning apps, shortcuts, widgets, contacts, URL
 
 ## Install
 
-Download the latest APK from [GitHub Releases](https://github.com/Dazaike/flick/releases) and sideload it on your device. Release builds are unsigned; allow installation from unknown sources if prompted.
+Download the latest signed APK from [GitHub Releases](https://github.com/Dazaike/flick/releases) and sideload it on your device.
 
 ## Build
 
