@@ -72,12 +72,11 @@ class OverlayService : Service() {
             val availability = withContext(Dispatchers.IO) { computeAvailability(this@OverlayService, bookmarks) }
             val itemsFlow = MutableStateFlow(buildItems(bookmarks))
 
-            overlayController.show(blurIntensity = prefs.blurIntensity) { _ ->
+            overlayController.show { _ ->
                 val currentItems by itemsFlow.collectAsState()
                 OverlayRoot(
                     bookmarks = currentItems,
                     showLabels = prefs.showAppNames,
-                    blurIntensity = prefs.blurIntensity,
                     popupOpacity = prefs.popupOpacity,
                     rightPopup = prefs.rightPopup,
                     iconSpacing = prefs.iconSpacing,
@@ -91,6 +90,7 @@ class OverlayService : Service() {
                     panelAnimationSpeed = prefs.panelAnimationSpeed,
                     iconAnimationSpeed = prefs.iconAnimationSpeed,
                     menuScale = prefs.menuScale,
+                    cornerRadius = prefs.cornerRadius,
                     availability = availability,
                     onBookmarkClick = { item ->
                         runCatching {

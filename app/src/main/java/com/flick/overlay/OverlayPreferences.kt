@@ -14,7 +14,6 @@ import javax.inject.Singleton
 
 private val Context.overlayDataStore by preferencesDataStore(name = "overlay_prefs")
 private val SHOW_APP_NAMES_KEY = booleanPreferencesKey("show_app_names")
-private val BLUR_INTENSITY_KEY = floatPreferencesKey("blur_intensity")
 private val POPUP_OPACITY_KEY = floatPreferencesKey("popup_opacity")
 private val RIGHT_POPUP_KEY = booleanPreferencesKey("right_popup")
 private val ICON_SPACING_KEY = floatPreferencesKey("icon_spacing")
@@ -28,12 +27,12 @@ private val RIGHT_POPUP_Y_OFFSET_KEY = floatPreferencesKey("right_popup_y_offset
 private val PANEL_ANIMATION_SPEED_KEY = floatPreferencesKey("panel_animation_speed")
 private val ICON_ANIMATION_SPEED_KEY = floatPreferencesKey("icon_animation_speed")
 private val MENU_SCALE_KEY = floatPreferencesKey("menu_scale")
+private val CORNER_RADIUS_KEY = floatPreferencesKey("corner_radius")
 
 /** Single source of truth for default values + Preferences -> [OverlayPrefsData] mapping. */
 private fun androidx.datastore.preferences.core.Preferences.toOverlayPrefsData(): OverlayPrefsData =
     OverlayPrefsData(
         showAppNames = this[SHOW_APP_NAMES_KEY] ?: true,
-        blurIntensity = this[BLUR_INTENSITY_KEY] ?: 0f,
         popupOpacity = this[POPUP_OPACITY_KEY] ?: 0.92f,
         rightPopup = this[RIGHT_POPUP_KEY] ?: false,
         iconSpacing = this[ICON_SPACING_KEY] ?: 6f,
@@ -46,7 +45,8 @@ private fun androidx.datastore.preferences.core.Preferences.toOverlayPrefsData()
         rightPopupYOffset = this[RIGHT_POPUP_Y_OFFSET_KEY] ?: 0f,
         panelAnimationSpeed = this[PANEL_ANIMATION_SPEED_KEY] ?: 1f,
         iconAnimationSpeed = this[ICON_ANIMATION_SPEED_KEY] ?: 1f,
-        menuScale = this[MENU_SCALE_KEY] ?: 1f
+        menuScale = this[MENU_SCALE_KEY] ?: 1f,
+        cornerRadius = (this[CORNER_RADIUS_KEY] ?: 32f).coerceIn(8f, 48f)
     )
 
 @Singleton
@@ -57,13 +57,6 @@ class OverlayPreferences @Inject constructor(
 
     suspend fun setShowAppNames(show: Boolean) {
         context.overlayDataStore.edit { prefs -> prefs[SHOW_APP_NAMES_KEY] = show }
-    }
-
-    /** 0f = no blur behind the popup, 1f = maximum blur radius. */
-    val blurIntensity: Flow<Float> = context.overlayDataStore.data.map { it.toOverlayPrefsData().blurIntensity }
-
-    suspend fun setBlurIntensity(intensity: Float) {
-        context.overlayDataStore.edit { prefs -> prefs[BLUR_INTENSITY_KEY] = intensity }
     }
 
     val popupOpacity: Flow<Float> = context.overlayDataStore.data.map { it.toOverlayPrefsData().popupOpacity }
@@ -129,7 +122,7 @@ class OverlayPreferences @Inject constructor(
 
     suspend fun setPanelAnimationSpeed(speed: Float) {
         context.overlayDataStore.edit { prefs ->
-            prefs[PANEL_ANIMATION_SPEED_KEY] = speed.coerceIn(0.1f, 1f)
+            prefs[PANEL_ANIMATION_SPEED_KEY] = speed.coerceIn(0.1f, 4f)
         }
     }
 
@@ -137,7 +130,7 @@ class OverlayPreferences @Inject constructor(
 
     suspend fun setIconAnimationSpeed(speed: Float) {
         context.overlayDataStore.edit { prefs ->
-            prefs[ICON_ANIMATION_SPEED_KEY] = speed.coerceIn(0.1f, 1f)
+            prefs[ICON_ANIMATION_SPEED_KEY] = speed.coerceIn(0.1f, 4f)
         }
     }
 
@@ -149,12 +142,20 @@ class OverlayPreferences @Inject constructor(
         }
     }
 
+    /** Popup corner radius in dp (8..48). */
+    val cornerRadius: Flow<Float> = context.overlayDataStore.data.map { it.toOverlayPrefsData().cornerRadius }
+
+    suspend fun setCornerRadius(radius: Float) {
+        context.overlayDataStore.edit { prefs ->
+            prefs[CORNER_RADIUS_KEY] = radius.coerceIn(8f, 48f)
+        }
+    }
+
     suspend fun getAllPrefs(): OverlayPrefsData = context.overlayDataStore.data.first().toOverlayPrefsData()
 }
 
 data class OverlayPrefsData(
     val showAppNames: Boolean,
-    val blurIntensity: Float,
     val popupOpacity: Float,
     val rightPopup: Boolean,
     val iconSpacing: Float,
@@ -167,7 +168,8 @@ data class OverlayPrefsData(
     val rightPopupYOffset: Float,
     val panelAnimationSpeed: Float,
     val iconAnimationSpeed: Float,
-    val menuScale: Float
+    val menuScale: Float,
+    val cornerRadius: Float
 )
 
 

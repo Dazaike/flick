@@ -20,10 +20,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.material3.LocalRippleConfiguration
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RippleConfiguration
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,7 +68,7 @@ fun BookmarkGrid(
     val motion = LocalMotion.current
     val localItems = remember(items) { mutableStateListOf<OverlayBookmarkItem>().apply { addAll(items) } }
     var orderIds by remember { mutableStateOf(items.map { it.bookmark.id }) }
-    var tilesVisible by remember { mutableStateOf(!motion.enabled) }
+    var tilesVisible by remember { mutableStateOf(motion.reduced) }
     var draggedBookmarkId by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(items) {
@@ -82,8 +78,8 @@ fun BookmarkGrid(
         orderIds = items.map { it.bookmark.id }
     }
 
-    LaunchedEffect(items, motion.enabled, motion.intensity, tilesReady) {
-        if (!motion.enabled) {
+    LaunchedEffect(items, motion.reduced, motion.speed, tilesReady) {
+        if (motion.reduced) {
             tilesVisible = true
             return@LaunchedEffect
         }
@@ -267,68 +263,64 @@ fun BookmarkGrid(
         orderIds = localItems.map { it.bookmark.id }
     }
 
-    CompositionLocalProvider(
-        LocalRippleConfiguration provides RippleConfiguration(color = MaterialTheme.colorScheme.primary)
-    ) {
-        val gridModifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 450.dp)
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-            .then(
-                if (applyNavigationBarPadding) {
-                    Modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 12.dp)
-                } else {
-                    Modifier
-                }
-            )
+    val gridModifier = Modifier
+        .fillMaxWidth()
+        .heightIn(max = 450.dp)
+        .padding(horizontal = 8.dp, vertical = 6.dp)
+        .then(
+            if (applyNavigationBarPadding) {
+                Modifier.windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 12.dp)
+            } else {
+                Modifier
+            }
+        )
 
-        if (eagerLayout) {
-            EagerBookmarkGrid(
-                orderIds = orderIds,
-                itemsById = { id -> itemById(id) },
-                columns = columns,
-                iconSpacing = iconSpacing,
-                showLabels = showLabels,
-                showIconBorder = showIconBorder,
-                availability = availability,
-                mergeHighlightId = mergeHighlightId,
-                tilesVisible = tilesVisible,
-                slideAnimation = slideIcons,
-                bounceEnabled = bounceEnabled,
-                draggedBookmarkId = draggedBookmarkId,
-                dragFingerPosition = dragFingerPosition,
-                dragGrabOffset = dragGrabOffset,
-                tileLayouts = eagerTileLayouts,
-                modifier = gridModifier,
-                onBookmarkClick = onBookmarkClick,
-                onDragStart = onDragStart,
-                onDragMove = ::handleDragMove,
-                onDragEnd = onDragEnd,
-                onDragCancel = onDragCancel
-            )
-        } else {
-            LazyBookmarkGrid(
-                localItems = localItems,
-                columns = columns,
-                iconSpacing = iconSpacing,
-                showLabels = showLabels,
-                showIconBorder = showIconBorder,
-                availability = availability,
-                mergeHighlightId = mergeHighlightId,
-                tilesVisible = tilesVisible,
-                slideAnimation = slideIcons,
-                bounceEnabled = bounceEnabled,
-                gridState = gridState,
-                draggedBookmarkId = draggedBookmarkId,
-                dragOffset = dragOffset,
-                modifier = gridModifier,
-                onBookmarkClick = onBookmarkClick,
-                onDragStart = onDragStart,
-                onDragMove = ::handleDragMove,
-                onDragEnd = onDragEnd,
-                onDragCancel = onDragCancel
-            )
-        }
+    if (eagerLayout) {
+        EagerBookmarkGrid(
+            orderIds = orderIds,
+            itemsById = { id -> itemById(id) },
+            columns = columns,
+            iconSpacing = iconSpacing,
+            showLabels = showLabels,
+            showIconBorder = showIconBorder,
+            availability = availability,
+            mergeHighlightId = mergeHighlightId,
+            tilesVisible = tilesVisible,
+            slideAnimation = slideIcons,
+            bounceEnabled = bounceEnabled,
+            draggedBookmarkId = draggedBookmarkId,
+            dragFingerPosition = dragFingerPosition,
+            dragGrabOffset = dragGrabOffset,
+            tileLayouts = eagerTileLayouts,
+            modifier = gridModifier,
+            onBookmarkClick = onBookmarkClick,
+            onDragStart = onDragStart,
+            onDragMove = ::handleDragMove,
+            onDragEnd = onDragEnd,
+            onDragCancel = onDragCancel
+        )
+    } else {
+        LazyBookmarkGrid(
+            localItems = localItems,
+            columns = columns,
+            iconSpacing = iconSpacing,
+            showLabels = showLabels,
+            showIconBorder = showIconBorder,
+            availability = availability,
+            mergeHighlightId = mergeHighlightId,
+            tilesVisible = tilesVisible,
+            slideAnimation = slideIcons,
+            bounceEnabled = bounceEnabled,
+            gridState = gridState,
+            draggedBookmarkId = draggedBookmarkId,
+            dragOffset = dragOffset,
+            modifier = gridModifier,
+            onBookmarkClick = onBookmarkClick,
+            onDragStart = onDragStart,
+            onDragMove = ::handleDragMove,
+            onDragEnd = onDragEnd,
+            onDragCancel = onDragCancel
+        )
     }
 }
 

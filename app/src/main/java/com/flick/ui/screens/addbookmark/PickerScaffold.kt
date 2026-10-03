@@ -5,26 +5,24 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.flick.ui.prism.GlassSearchField
+import com.flick.ui.prism.PrismScreen
+import com.flick.ui.prism.Spinner
 import com.flick.ui.theme.DURATION_MEDIUM
+import com.flick.ui.theme.DURATION_QUICK
 import com.flick.ui.theme.LocalMotion
-import com.flick.ui.theme.flickTween
+import com.flick.ui.theme.Prism
+import com.kyant.backdrop.Backdrop
 
 /**
  * Shared scaffold for the app/shortcut/widget picker screens: a top bar, an optional search
@@ -44,50 +42,57 @@ fun PickerScaffold(
     onSearchQueryChange: ((String) -> Unit)? = null,
     searchPlaceholder: String = "Search",
     isContentEmpty: Boolean = false,
-    emptyContent: @Composable () -> Unit = {},
-    headerContent: (@Composable () -> Unit)? = null,
-    topBarActions: @Composable () -> Unit = {},
+    emptyContent: @Composable (Backdrop) -> Unit = {},
+    headerContent: (@Composable (Backdrop) -> Unit)? = null,
+    topBarActions: @Composable RowScope.(Backdrop) -> Unit = {},
     listContent: LazyListScope.() -> Unit
 ) {
     val motion = LocalMotion.current
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text(title) }, actions = { topBarActions() }) }
-    ) { padding ->
-        Box(modifier = modifier.fillMaxSize().padding(padding)) {
-            AnimatedContent(
-                targetState = isLoading,
-                transitionSpec = {
-                    fadeIn(motion.flickTween(DURATION_MEDIUM)) togetherWith fadeOut(motion.flickTween(120))
-                },
-                label = "pickerScaffoldLoadingCrossfade"
-            ) { loading ->
-                if (loading) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+    PrismScreen(
+        title = title,
+        modifier = modifier,
+        actions = { bd -> topBarActions(bd) }
+    ) { padding, contentBackdrop ->
+        AnimatedContent(
+            targetState = isLoading,
+            modifier = Modifier.fillMaxSize(),
+            transitionSpec = {
+                fadeIn(motion.fade(DURATION_MEDIUM)) togetherWith fadeOut(motion.fade(DURATION_QUICK))
+            },
+            label = "pickerScaffoldLoadingCrossfade"
+        ) { loading ->
+            if (loading) {
+                Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                    Spinner(
+                        modifier = Modifier.align(Alignment.Center),
+                        size = 32.dp,
+                        color = Prism.accent
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = padding
+                ) {
+                    if (searchQuery != null && onSearchQueryChange != null) {
+                        item(key = "__picker_search_field__") {
+                            GlassSearchField(
+                                value = searchQuery,
+                                onValueChange = onSearchQueryChange,
+                                backdrop = contentBackdrop,
+                                placeholder = searchPlaceholder,
+                                modifier = Modifier.fillMaxWidth().padding(16.dp)
+                            )
+                        }
                     }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        if (searchQuery != null && onSearchQueryChange != null) {
-                            item(key = "__picker_search_field__") {
-                                OutlinedTextField(
-                                    value = searchQuery,
-                                    onValueChange = onSearchQueryChange,
-                                    placeholder = { Text(searchPlaceholder) },
-                                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp)
-                                )
-                            }
+                    if (isContentEmpty) {
+                        item(key = "__picker_empty_content__") { emptyContent(contentBackdrop) }
+                    } else {
+                        headerContent?.let { header ->
+                            item(key = "__picker_header_content__") { header(contentBackdrop) }
                         }
-                        if (isContentEmpty) {
-                            item(key = "__picker_empty_content__") { emptyContent() }
-                        } else {
-                            headerContent?.let { header ->
-                                item(key = "__picker_header_content__") { header() }
-                            }
-                            listContent()
-                        }
+                        listContent()
                     }
                 }
             }

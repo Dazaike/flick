@@ -26,7 +26,7 @@ class OverlayWindowController(private val context: Context) {
     private val isShowing = AtomicBoolean(false)
 
     @SuppressLint("InflateParams")
-    fun show(blurIntensity: Float = 0f, content: @Composable (dismiss: () -> Unit) -> Unit) {
+    fun show(content: @Composable (dismiss: () -> Unit) -> Unit) {
         if (!isShowing.compareAndSet(false, true)) return
 
         lifecycleOwner.performRestore()
@@ -42,26 +42,17 @@ class OverlayWindowController(private val context: Context) {
         }
         composeView = view
 
-        var flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-        val radius = (blurIntensity.coerceIn(0f, 1f) * 100).toInt()
-        if (radius > 0) {
-            flags = flags or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
-        }
-
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            flags,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             setFitInsetsTypes(0)
-            if (radius > 0) {
-                blurBehindRadius = radius
-            }
         }
 
         windowManager.addView(view, params)

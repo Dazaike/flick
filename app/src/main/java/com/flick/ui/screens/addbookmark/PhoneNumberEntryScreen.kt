@@ -4,14 +4,11 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,6 +21,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.flick.data.model.BookmarkAction
+import com.flick.ui.prism.ButtonVariant
+import com.flick.ui.prism.GlassButton
+import com.flick.ui.prism.GlassTextField
+import com.flick.ui.prism.PrismScreen
 
 enum class PhoneEntryMode { DIAL, DIRECT_CALL, SEND_SMS }
 
@@ -57,16 +58,34 @@ fun PhoneNumberEntryScreen(
         PhoneEntryMode.SEND_SMS -> "Text a number"
     }
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text(title) }) }
-    ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-            OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Label") })
-            OutlinedTextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("Phone number") })
+    PrismScreen(title = title) { padding, contentBackdrop ->
+        Column(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            GlassTextField(
+                value = label,
+                onValueChange = { label = it },
+                label = "Label",
+                modifier = Modifier.fillMaxWidth()
+            )
+            GlassTextField(
+                value = phoneNumber,
+                onValueChange = { phoneNumber = it },
+                label = "Phone number",
+                modifier = Modifier.fillMaxWidth()
+            )
             if (mode == PhoneEntryMode.SEND_SMS) {
-                OutlinedTextField(value = body, onValueChange = { body = it }, label = { Text("Message (optional)") })
+                GlassTextField(
+                    value = body,
+                    onValueChange = { body = it },
+                    label = "Message (optional)",
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-            Button(
+            GlassButton(
+                backdrop = contentBackdrop,
+                text = "Save",
                 onClick = {
                     val action = when (mode) {
                         PhoneEntryMode.DIAL -> BookmarkAction.DialNumber(phoneNumber)
@@ -75,10 +94,9 @@ fun PhoneNumberEntryScreen(
                     }
                     viewModel.addBookmark(categoryId, label.ifBlank { phoneNumber }, action, onAdded)
                 },
+                variant = ButtonVariant.Primary,
                 enabled = phoneNumber.isNotBlank()
-            ) {
-                Text("Save")
-            }
+            )
         }
     }
 }

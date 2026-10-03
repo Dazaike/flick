@@ -1,17 +1,14 @@
 package com.flick.ui.screens.addbookmark
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.flick.ui.prism.PrismIcon
+import com.flick.ui.prism.PrismIcons
+import com.flick.ui.prism.PrismListItem
+import com.flick.ui.prism.PrismScreen
 
 enum class BookmarkTypeOption(val label: String) {
     APP("App"),
@@ -27,26 +24,36 @@ enum class BookmarkTypeOption(val label: String) {
     FOLDER("Folder")
 }
 
+private fun BookmarkTypeOption.icon(): Int = when (this) {
+    BookmarkTypeOption.APP -> PrismIcons.App
+    BookmarkTypeOption.APP_SHORTCUT -> PrismIcons.Widgets
+    BookmarkTypeOption.WIDGET -> PrismIcons.Widgets
+    BookmarkTypeOption.URL -> PrismIcons.Globe
+    BookmarkTypeOption.SETTINGS_PANEL -> PrismIcons.Settings
+    BookmarkTypeOption.CALL_CONTACT -> PrismIcons.Call
+    BookmarkTypeOption.MESSAGE_CONTACT -> PrismIcons.Sms
+    BookmarkTypeOption.DIAL_NUMBER -> PrismIcons.Dialpad
+    BookmarkTypeOption.DIRECT_CALL -> PrismIcons.Call
+    BookmarkTypeOption.SEND_SMS -> PrismIcons.Sms
+    BookmarkTypeOption.FOLDER -> PrismIcons.Folder
+}
+
 @Composable
 fun AddBookmarkScreen(
     onTypeSelected: (BookmarkTypeOption) -> Unit
 ) {
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Add bookmark") }) }
-    ) { padding ->
-        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
-            itemsIndexed(BookmarkTypeOption.entries, key = { _, type -> type.name }) { _, type ->
-                ListItem(
-                    headlineContent = { Text(type.label) },
-                    modifier = Modifier.clickable { onTypeSelected(type) }
+    PrismScreen(title = "Add bookmark") { padding, _ ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = padding
+        ) {
+            items(BookmarkTypeOption.entries, key = { it.name }) { type ->
+                PrismListItem(
+                    headline = type.label,
+                    leading = { PrismIcon(type.icon(), contentDescription = null) },
+                    onClick = { onTypeSelected(type) }
                 )
             }
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun AddBookmarkScreenPreview() {
-    AddBookmarkScreen(onTypeSelected = {})
 }

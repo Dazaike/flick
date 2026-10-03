@@ -1,22 +1,19 @@
 package com.flick.ui.screens.addbookmark
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Android
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import com.flick.ui.prism.GlassCheckbox
+import com.flick.ui.prism.GlassIconButton
+import com.flick.ui.prism.GlassTextField
+import com.flick.ui.prism.PrismIcon
+import com.flick.ui.prism.PrismIcons
+import com.flick.ui.prism.PrismListItem
+import com.flick.ui.theme.PrismText
+import com.kyant.shapes.RoundedRectangle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -25,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -73,26 +69,31 @@ private fun FolderCreateContent(
         title = "Create folder",
         isLoading = isLoading,
         isContentEmpty = options.size < 2,
-        topBarActions = {
-            IconButton(onClick = onConfirm, enabled = canCreate) {
-                Icon(Icons.Filled.Check, contentDescription = "Create folder")
-            }
+        topBarActions = { bd ->
+            GlassIconButton(
+                backdrop = bd,
+                icon = PrismIcons.Check,
+                contentDescription = "Create",
+                onClick = onConfirm,
+                size = 44.dp,
+                enabled = canCreate
+            )
         },
         emptyContent = {
             Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-                Text("Add a couple of bookmarks first, then group them into a folder.")
+                PrismText("Add a couple of bookmarks first, then group them into a folder.")
             }
         },
         headerContent = {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                OutlinedTextField(
+                GlassTextField(
                     value = folderName,
                     onValueChange = onNameChange,
-                    label = { Text("Folder name") },
+                    label = "Folder name",
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text(
+                PrismText(
                     text = if (canCreate) "Selected ${selectedIds.size} bookmarks" else "Select at least 2 bookmarks",
                     modifier = Modifier.padding(top = 8.dp)
                 )
@@ -102,38 +103,24 @@ private fun FolderCreateContent(
         itemsIndexed(options, key = { _, option -> option.bookmark.id }) { _, option ->
             val isSelected = option.bookmark.id in selectedIds
             val iconBitmap = option.icon?.let { icon -> remember(icon) { icon.asImageBitmap() } }
-            ListItem(
-                leadingContent = {
+            PrismListItem(
+                leading = {
                     if (iconBitmap != null) {
                         Image(
                             bitmap = iconBitmap,
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
+                            modifier = Modifier.size(40.dp).clip(RoundedRectangle(8.dp))
                         )
                     } else {
-                        Icon(Icons.Filled.Android, contentDescription = null, modifier = Modifier.size(40.dp))
+                        PrismIcon(PrismIcons.App, contentDescription = null, size = 40.dp)
                     }
                 },
-                headlineContent = { Text(option.bookmark.label) },
-                trailingContent = {
-                    Checkbox(checked = isSelected, onCheckedChange = { onToggleSelected(option.bookmark.id) })
+                headline = option.bookmark.label,
+                trailing = {
+                    GlassCheckbox(checked = isSelected, onCheckedChange = { onToggleSelected(option.bookmark.id) })
                 },
-                modifier = Modifier.clickable { onToggleSelected(option.bookmark.id) }
+                onClick = { onToggleSelected(option.bookmark.id) }
             )
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun FolderCreateScreenPreview() {
-    FolderCreateContent(
-        options = emptyList(),
-        isLoading = false,
-        folderName = "",
-        selectedIds = emptySet(),
-        onNameChange = {},
-        onToggleSelected = {},
-        onConfirm = {}
-    )
 }

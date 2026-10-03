@@ -5,10 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -18,19 +14,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.flick.data.model.Bookmark
 import com.flick.data.model.BookmarkAction
+import com.flick.ui.prism.GlassIconButton
+import com.flick.ui.prism.PrismIcons
 import com.flick.ui.theme.FlickTheme
 import com.flick.ui.theme.LocalMotion
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import kotlinx.coroutines.delay
 
 @Composable
 fun OverlayRoot(
     bookmarks: List<OverlayBookmarkItem>,
     showLabels: Boolean,
-    blurIntensity: Float = 0f,
     popupOpacity: Float = 0.92f,
     rightPopup: Boolean = false,
     iconSpacing: Float = 6f,
@@ -48,17 +46,20 @@ fun OverlayRoot(
     onBookmarkClick: (OverlayBookmarkItem) -> Unit,
     onDismiss: () -> Unit,
     onReorder: (List<Bookmark>) -> Unit = {},
-    onMergeIntoFolder: (Bookmark, Bookmark) -> Unit = { _, _ -> }
+    onMergeIntoFolder: (Bookmark, Bookmark) -> Unit = { _, _ -> },
+    cornerRadius: Float = 32f
 ) {
     FlickTheme {
         val motion = LocalMotion.current
+        val sceneBackdrop = rememberLayerBackdrop()
+        val panelSurface = rememberLayerBackdrop()
         val panelMotionConfig = remember(motion, panelAnimationSpeed) {
-            motion.copy(intensity = panelAnimationSpeed)
+            motion.copy(speed = panelAnimationSpeed)
         }
         val iconMotionConfig = remember(motion, iconAnimationSpeed) {
-            motion.copy(intensity = iconAnimationSpeed)
+            motion.copy(speed = iconAnimationSpeed)
         }
-        val instantOpen = !motion.enabled
+        val instantOpen = motion.reduced
         var shown by remember { mutableStateOf(instantOpen) }
         var activeFolderId by remember { mutableStateOf<Long?>(null) }
 
@@ -70,7 +71,7 @@ fun OverlayRoot(
             OverlayPanelMotion(slide = effectiveBottomSlideUp, bounce = bottomBounce)
         }
 
-        val scrimAlpha = if (blurIntensity > 0f) 0.12f else 0.4f
+        val scrimAlpha = 0.4f
 
         BackHandler(enabled = shown) {
             if (activeFolderId != null) {
@@ -86,7 +87,8 @@ fun OverlayRoot(
 
         LaunchedEffect(shown) {
             if (!shown) {
-                delay(220)
+                // Outlast the 350 ms scrim fade (scaled by panel speed) before removing the window.
+                delay(panelMotionConfig.duration(350).toLong() + 30L)
                 onDismiss()
             }
         }
@@ -98,10 +100,13 @@ fun OverlayRoot(
             panelMotion = overlayPanelMotion,
             scrimAlpha = scrimAlpha,
             panelOpacity = popupOpacity,
+            sceneBackdrop = sceneBackdrop,
+            panelSurface = panelSurface,
             rightPanelYOffset = rightPopupYOffset.dp,
             menuScale = menuScale,
+            cornerRadius = cornerRadius.dp,
             onScrimClick = { shown = false }
-        ) { iconsReady ->
+        ) { iconsReady, panelSurface ->
             CompositionLocalProvider(LocalMotion provides iconMotionConfig) {
                 FolderAwareGrid(
                     bookmarks = bookmarks,
@@ -109,7 +114,7 @@ fun OverlayRoot(
                     onActiveFolderChange = { activeFolderId = it },
                     showLabels = showLabels,
                     columns = if (rightPopup) 2 else 4,
-                    applyNavigationBarPadding = !rightPopup,
+                    applyNavigationBarPadding = false,
                     iconSpacing = iconSpacing,
                     showIconBorder = showIconBorder,
                     slideIcons = if (rightPopup) effectiveRightSlideIn else effectiveBottomSlideUp,
@@ -118,7 +123,8 @@ fun OverlayRoot(
                     availability = availability,
                     onBookmarkClick = onBookmarkClick,
                     onReorder = onReorder,
-                    onMergeIntoFolder = onMergeIntoFolder
+                    onMergeIntoFolder = onMergeIntoFolder,
+                    panelSurface = panelSurface
                 )
             }
         }
@@ -145,7 +151,8 @@ private fun FolderAwareGrid(
     availability: Map<Long, Boolean> = emptyMap(),
     onBookmarkClick: (OverlayBookmarkItem) -> Unit,
     onReorder: (List<Bookmark>) -> Unit,
-    onMergeIntoFolder: (Bookmark, Bookmark) -> Unit
+    onMergeIntoFolder: (Bookmark, Bookmark) -> Unit,
+    panelSurface: Backdrop
 ) {
     val activeFolderItem = remember(bookmarks, activeFolderId) {
         activeFolderId?.let { id -> bookmarks.find { it.bookmark.id == id } }
@@ -160,9 +167,13 @@ private fun FolderAwareGrid(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { onActiveFolderChange(null) }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                }
+                GlassIconButton(
+                    backdrop = panelSurface,
+                    icon = PrismIcons.ArrowLeft,
+                    contentDescription = "Back",
+                    onClick = { onActiveFolderChange(null) },
+                    size = 40.dp
+                )
             }
         }
         BookmarkGrid(
@@ -188,49 +199,4 @@ private fun FolderAwareGrid(
             onMergeIntoFolder = onMergeIntoFolder
         )
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun OverlayRootPreview() {
-    OverlayRoot(
-        bookmarks = listOf(
-            OverlayBookmarkItem(
-                bookmark = Bookmark(
-                    id = 1,
-                    categoryId = 1,
-                    label = "Example",
-                    sortOrder = 0,
-                    action = BookmarkAction.WebUrl("https://example.com")
-                ),
-                icon = null
-            )
-        ),
-        showLabels = true,
-        onBookmarkClick = {},
-        onDismiss = {}
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun OverlayRootRightPreview() {
-    OverlayRoot(
-        bookmarks = listOf(
-            OverlayBookmarkItem(
-                bookmark = Bookmark(
-                    id = 1,
-                    categoryId = 1,
-                    label = "Example",
-                    sortOrder = 0,
-                    action = BookmarkAction.WebUrl("https://example.com")
-                ),
-                icon = null
-            )
-        ),
-        showLabels = true,
-        rightPopup = true,
-        onBookmarkClick = {},
-        onDismiss = {}
-    )
 }

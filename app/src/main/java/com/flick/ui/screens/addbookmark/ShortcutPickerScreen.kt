@@ -5,20 +5,17 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Android
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.Text
+import com.flick.ui.prism.GlassButton
+import com.flick.ui.prism.PrismIcon
+import com.flick.ui.prism.PrismIcons
+import com.flick.ui.prism.PrismListItem
+import com.flick.ui.theme.PrismText
+import com.kyant.shapes.RoundedRectangle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -29,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -85,64 +81,54 @@ private fun ShortcutPickerContent(
         title = "Choose a shortcut",
         isLoading = isLoading,
         isContentEmpty = shortcuts.isEmpty(),
-        emptyContent = {
+        emptyContent = { backdrop ->
             Column(
                 modifier = Modifier.fillMaxWidth().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("No modern shortcuts available")
-                Button(
+                PrismText("No modern shortcuts available")
+                GlassButton(
+                    backdrop = backdrop,
+                    text = "Create app shortcut",
                     onClick = onCreateLegacyShortcut,
-                    modifier = Modifier.padding(top = 12.dp)
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Text("Create app shortcut", modifier = Modifier.padding(start = 8.dp))
-                }
+                    modifier = Modifier.padding(top = 12.dp),
+                    leadingIcon = PrismIcons.Plus
+                )
             }
         },
-        headerContent = {
-            Button(
+        headerContent = { backdrop ->
+            GlassButton(
+                backdrop = backdrop,
+                text = "Create app shortcut",
                 onClick = onCreateLegacyShortcut,
-                modifier = Modifier.fillMaxWidth().padding(16.dp)
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Text("Create app shortcut", modifier = Modifier.padding(start = 8.dp))
-            }
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                leadingIcon = PrismIcons.Plus
+            )
         }
     ) {
         itemsIndexed(shortcuts, key = { _, shortcut -> "${shortcut.packageName}:${shortcut.shortcutId}" }) { index, shortcut ->
             val iconBitmap = shortcut.icon?.let { icon -> remember(icon) { icon.asImageBitmap() } }
-            ListItem(
-                leadingContent = {
+            PrismListItem(
+                leading = {
                     if (iconBitmap != null) {
                         Image(
                             bitmap = iconBitmap,
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
+                            modifier = Modifier.size(40.dp).clip(RoundedRectangle(8.dp))
                         )
                     } else {
-                        Icon(
-                            Icons.Filled.Android,
+                        PrismIcon(
+                            PrismIcons.App,
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp)
+                            size = 40.dp
                         )
                     }
                 },
-                headlineContent = { Text(shortcut.label) },
-                supportingContent = { Text(shortcut.shortcutId) },
-                modifier = Modifier.animateItem().clickable { onShortcutSelected(shortcut, index) }
+                headline = shortcut.label,
+                supporting = shortcut.shortcutId,
+                modifier = Modifier.animateItem(),
+                onClick = { onShortcutSelected(shortcut, index) }
             )
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun ShortcutPickerEmptyPreview() {
-    ShortcutPickerContent(
-        shortcuts = emptyList(),
-        isLoading = false,
-        onCreateLegacyShortcut = {},
-        onShortcutSelected = { _, _ -> }
-    )
 }

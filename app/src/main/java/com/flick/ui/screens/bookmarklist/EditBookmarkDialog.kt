@@ -17,15 +17,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Android
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,11 +32,17 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.flick.data.model.Bookmark
+import com.flick.ui.prism.ButtonSize
+import com.flick.ui.prism.ButtonVariant
+import com.flick.ui.prism.GlassButton
+import com.flick.ui.prism.GlassDialog
+import com.flick.ui.prism.GlassSwitch
+import com.flick.ui.prism.PrismIcon
+import com.flick.ui.prism.PrismIcons
 import com.flick.ui.theme.DURATION_MEDIUM
+import com.flick.ui.theme.DURATION_QUICK
 import com.flick.ui.theme.LocalMotion
-import com.flick.ui.theme.flickSpring
-import com.flick.ui.theme.flickTween
-import androidx.core.graphics.drawable.toBitmap
+import com.flick.ui.theme.PrismText
 
 @Composable
 fun EditBookmarkDialog(
@@ -68,76 +69,74 @@ fun EditBookmarkDialog(
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit ${bookmark.label}") },
-        text = {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val iconBitmap = remember(customIconUri) {
-                        customIconUri?.let { uriString ->
-                            runCatching {
-                                context.contentResolver.openInputStream(Uri.parse(uriString))?.use {
-                                    android.graphics.BitmapFactory.decodeStream(it)
-                                }
-                            }.getOrNull()
+    GlassDialog(
+        visible = true,
+        title = "Edit ${bookmark.label}",
+        onDismiss = onDismiss,
+        confirmLabel = "Save",
+        onConfirm = {
+            onSave(bookmark.copy(customIconUri = customIconUri, showLabel = showLabel))
+        }
+    ) { cardBackdrop ->
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val iconBitmap = remember(customIconUri) {
+                customIconUri?.let { uriString ->
+                    runCatching {
+                        context.contentResolver.openInputStream(Uri.parse(uriString))?.use {
+                            android.graphics.BitmapFactory.decodeStream(it)
                         }
-                    }
-                    AnimatedContent(
-                        targetState = iconBitmap,
-                        transitionSpec = {
-                            (fadeIn(motion.flickTween(DURATION_MEDIUM)) + scaleIn(motion.flickSpring(), initialScale = 0.6f)) togetherWith
-                                (fadeOut(motion.flickTween(120)) + scaleOut(motion.flickTween(120), targetScale = 0.6f))
-                        },
-                        label = "bookmarkIconCrossfade"
-                    ) { bitmap ->
-                        if (bitmap != null) {
-                            Image(
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp)
-                            )
-                        } else {
-                            Icon(Icons.Filled.Android, contentDescription = null, modifier = Modifier.size(48.dp))
-                        }
-                    }
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(16.dp))
-                    Column {
-                        TextButton(onClick = { pickIconLauncher.launch(arrayOf("image/*")) }) {
-                            Text("Choose custom icon")
-                        }
-                        AnimatedVisibility(
-                            visible = customIconUri != null,
-                            enter = fadeIn(motion.flickTween(DURATION_MEDIUM)) + expandHorizontally(motion.flickSpring()),
-                            exit = fadeOut(motion.flickTween(120)) + shrinkHorizontally(motion.flickSpring())
-                        ) {
-                            TextButton(onClick = { customIconUri = null }) {
-                                Text("Remove custom icon")
-                            }
-                        }
-                    }
+                    }.getOrNull()
                 }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            }
+            AnimatedContent(
+                targetState = iconBitmap,
+                transitionSpec = {
+                    (fadeIn(motion.fade(DURATION_MEDIUM)) + scaleIn(motion.glide(), initialScale = 0.6f)) togetherWith
+                        (fadeOut(motion.fade(DURATION_QUICK)) + scaleOut(motion.fade(DURATION_QUICK), targetScale = 0.6f))
+                },
+                label = "bookmarkIconCrossfade"
+            ) { bitmap ->
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp)
+                    )
+                } else {
+                    PrismIcon(PrismIcons.App, contentDescription = null, size = 48.dp)
+                }
+            }
+            Spacer(modifier = Modifier.size(16.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                GlassButton(
+                    backdrop = cardBackdrop,
+                    text = "Choose custom icon",
+                    onClick = { pickIconLauncher.launch(arrayOf("image/*")) },
+                    variant = ButtonVariant.Secondary,
+                    size = ButtonSize.Small
+                )
+                AnimatedVisibility(
+                    visible = customIconUri != null,
+                    enter = fadeIn(motion.fade(DURATION_MEDIUM)) + expandHorizontally(motion.glide()),
+                    exit = fadeOut(motion.fade(DURATION_QUICK)) + shrinkHorizontally(motion.glide())
                 ) {
-                    Text("Show label under icon")
-                    Switch(checked = showLabel, onCheckedChange = { showLabel = it })
+                    GlassButton(
+                        backdrop = cardBackdrop,
+                        text = "Remove custom icon",
+                        onClick = { customIconUri = null },
+                        variant = ButtonVariant.Ghost,
+                        size = ButtonSize.Small
+                    )
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onSave(bookmark.copy(customIconUri = customIconUri, showLabel = showLabel))
-            }) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
             }
         }
-    )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            PrismText("Show label under icon")
+            GlassSwitch(checked = showLabel, onCheckedChange = { showLabel = it })
+        }
+    }
 }

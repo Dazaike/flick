@@ -4,8 +4,8 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.flick.overlay.OverlayPreferences
-import com.flick.ui.theme.ColorMode
 import com.flick.ui.theme.ThemePreferences
+import com.flick.ui.theme.UiSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +17,6 @@ import javax.inject.Inject
 @Immutable
 data class SettingsUiState(
     val showAppNames: Boolean = true,
-    val blurIntensity: Float = 0f,
     val popupOpacity: Float = 0.92f,
     val rightPopup: Boolean = false,
     val iconSpacing: Float = 6f,
@@ -31,11 +30,9 @@ data class SettingsUiState(
     val panelAnimationSpeed: Float = 1f,
     val iconAnimationSpeed: Float = 1f,
     val menuScale: Float = 1f,
-    val amoledMode: Boolean = false,
+    val cornerRadius: Float = 32f,
     val gridView: Boolean = false,
-    val colorMode: ColorMode = ColorMode.DYNAMIC,
-    val animationsEnabled: Boolean = true,
-    val animationIntensity: Float = 1f
+    val ui: UiSettings = UiSettings()
 )
 
 /**
@@ -43,7 +40,7 @@ data class SettingsUiState(
  * [ThemePreferences] flow once here (instead of via ~15 individual `LaunchedEffect` blocks in the
  * composable) and exposes a single [uiState] that section composables read narrow slices of.
  *
- * Slider-backed fields use a "live update, commit on release" pattern: [onBlurIntensityChange] and
+ * Slider-backed fields use a "live update, commit on release" pattern: [onPopupOpacityChange] and
  * friends update [uiState] immediately for smooth dragging, while `commit*` persists to DataStore
  * only once the user finishes interacting (mirroring the previous `onValueChangeFinished` behavior).
  */
@@ -58,7 +55,6 @@ class SettingsViewModel @Inject constructor(
 
     init {
         bind(overlayPreferences.showAppNames) { copy(showAppNames = it) }
-        bind(overlayPreferences.blurIntensity) { copy(blurIntensity = it) }
         bind(overlayPreferences.popupOpacity) { copy(popupOpacity = it) }
         bind(overlayPreferences.rightPopup) { copy(rightPopup = it) }
         bind(overlayPreferences.iconSpacing) { copy(iconSpacing = it) }
@@ -72,11 +68,9 @@ class SettingsViewModel @Inject constructor(
         bind(overlayPreferences.panelAnimationSpeed) { copy(panelAnimationSpeed = it) }
         bind(overlayPreferences.iconAnimationSpeed) { copy(iconAnimationSpeed = it) }
         bind(overlayPreferences.menuScale) { copy(menuScale = it) }
-        bind(themePreferences.amoledMode) { copy(amoledMode = it) }
+        bind(overlayPreferences.cornerRadius) { copy(cornerRadius = it) }
         bind(themePreferences.gridView) { copy(gridView = it) }
-        bind(themePreferences.colorMode) { copy(colorMode = it) }
-        bind(themePreferences.animationsEnabled) { copy(animationsEnabled = it) }
-        bind(themePreferences.animationIntensity) { copy(animationIntensity = it) }
+        bind(themePreferences.ui) { copy(ui = it) }
     }
 
     private fun <T> bind(flow: kotlinx.coroutines.flow.Flow<T>, reducer: SettingsUiState.(T) -> SettingsUiState) {
@@ -88,14 +82,6 @@ class SettingsViewModel @Inject constructor(
     fun setShowAppNames(value: Boolean) {
         _uiState.update { it.copy(showAppNames = value) }
         viewModelScope.launch { overlayPreferences.setShowAppNames(value) }
-    }
-
-    fun onBlurIntensityChange(value: Float) {
-        _uiState.update { it.copy(blurIntensity = value) }
-    }
-
-    fun commitBlurIntensity() {
-        viewModelScope.launch { overlayPreferences.setBlurIntensity(_uiState.value.blurIntensity) }
     }
 
     fun onPopupOpacityChange(value: Float) {
@@ -176,31 +162,21 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { overlayPreferences.setMenuScale(_uiState.value.menuScale) }
     }
 
-    fun setColorMode(value: ColorMode) {
-        _uiState.update { it.copy(colorMode = value) }
-        viewModelScope.launch { themePreferences.setColorMode(value) }
+    fun onCornerRadiusChange(value: Float) {
+        _uiState.update { it.copy(cornerRadius = value) }
     }
 
-    fun setAmoledMode(value: Boolean) {
-        _uiState.update { it.copy(amoledMode = value) }
-        viewModelScope.launch { themePreferences.setAmoledMode(value) }
+    fun commitCornerRadius() {
+        viewModelScope.launch { overlayPreferences.setCornerRadius(_uiState.value.cornerRadius) }
+    }
+
+    fun updateUi(transform: (UiSettings) -> UiSettings) {
+        _uiState.update { it.copy(ui = transform(it.ui)) }
+        viewModelScope.launch { themePreferences.update(transform) }
     }
 
     fun setGridView(value: Boolean) {
         _uiState.update { it.copy(gridView = value) }
         viewModelScope.launch { themePreferences.setGridView(value) }
-    }
-
-    fun setAnimationsEnabled(value: Boolean) {
-        _uiState.update { it.copy(animationsEnabled = value) }
-        viewModelScope.launch { themePreferences.setAnimationsEnabled(value) }
-    }
-
-    fun onAnimationIntensityChange(value: Float) {
-        _uiState.update { it.copy(animationIntensity = value) }
-    }
-
-    fun commitAnimationIntensity() {
-        viewModelScope.launch { themePreferences.setAnimationIntensity(_uiState.value.animationIntensity) }
     }
 }

@@ -9,17 +9,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Widgets
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,8 +25,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.flick.ui.prism.PrismIcon
+import com.flick.ui.prism.PrismIcons
+import com.flick.ui.prism.PrismListItem
 import com.flick.ui.theme.LocalMotion
-import com.flick.ui.theme.flickTween
+import com.flick.ui.theme.PrismText
+import com.kyant.shapes.RoundedRectangle
 
 @Composable
 fun WidgetPickerScreen(
@@ -136,9 +133,9 @@ fun WidgetPickerScreen(
         emptyContent = {
             AnimatedVisibility(
                 visible = true,
-                enter = fadeIn(motion.flickTween(220))
+                enter = fadeIn(motion.fade(220))
             ) {
-                Text(
+                PrismText(
                     text = "No widgets found",
                     modifier = Modifier.fillMaxWidth().padding(24.dp)
                 )
@@ -147,21 +144,22 @@ fun WidgetPickerScreen(
     ) {
         itemsIndexed(providerItems, key = { _, item -> item.provider.provider.flattenToString() }) { _, item ->
             val iconBitmap = item.icon?.let { icon -> remember(icon) { icon.asImageBitmap() } }
-            ListItem(
-                leadingContent = {
+            PrismListItem(
+                leading = {
                     if (iconBitmap != null) {
                         Image(
                             bitmap = iconBitmap,
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
+                            modifier = Modifier.size(40.dp).clip(RoundedRectangle(8.dp))
                         )
                     } else {
-                        Icon(Icons.Filled.Widgets, contentDescription = null, modifier = Modifier.size(40.dp))
+                        PrismIcon(PrismIcons.Widgets, contentDescription = null, size = 40.dp)
                     }
                 },
-                headlineContent = { Text(item.label) },
-                supportingContent = { Text(item.provider.provider.packageName) },
-                modifier = Modifier.animateItem().clickable { selectProvider(item) }
+                headline = item.label,
+                supporting = item.provider.provider.packageName,
+                modifier = Modifier.animateItem(),
+                onClick = { selectProvider(item) }
             )
         }
     }
