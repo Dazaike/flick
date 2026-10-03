@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.flick.data.model.Bookmark
 import com.flick.data.model.BookmarkAction
+import com.kyant.backdrop.Backdrop
 import kotlin.math.roundToInt
 
 private const val DRAG_MERGE_DWELL_MS = 450L
@@ -59,6 +60,7 @@ fun BookmarkListDragGrid(
     icons: Map<Long, Bitmap?>,
     expandedFolders: Set<Long>,
     contentPadding: PaddingValues,
+    backdrop: Backdrop,
     viewModel: BookmarkListViewModel,
     onToggleFolderExpanded: (Long) -> Unit,
     onFolderAddBookmarks: (Bookmark) -> Unit,
@@ -159,7 +161,6 @@ fun BookmarkListDragGrid(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(contentPadding)
             .onGloballyPositioned { gridCoordinates = it }
             .pointerInput(Unit) {
                 detectDragGesturesAfterLongPress(
@@ -199,7 +200,12 @@ fun BookmarkListDragGrid(
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(8.dp)
+            contentPadding = PaddingValues(
+                start = 8.dp,
+                end = 8.dp,
+                top = contentPadding.calculateTopPadding() + 8.dp,
+                bottom = contentPadding.calculateBottomPadding() + 8.dp
+            )
         ) {
             orderedBookmarks.forEach { bookmark ->
                 item(key = bookmark.id) {
@@ -239,6 +245,7 @@ fun BookmarkListDragGrid(
                                 FolderGridCard(
                                     bookmark = bookmark,
                                     isExpanded = bookmark.id in expandedFolders,
+                                    backdrop = backdrop,
                                     mergeHighlighted = mergeHighlightId == bookmark.id,
                                     onClick = { onToggleFolderExpanded(bookmark.id) },
                                     onAddBookmarks = { onFolderAddBookmarks(bookmark) },
@@ -249,6 +256,7 @@ fun BookmarkListDragGrid(
                                 BookmarkGridCard(
                                     bookmark = bookmark,
                                     icon = icons[bookmark.id],
+                                    backdrop = backdrop,
                                     mergeHighlighted = mergeHighlightId == bookmark.id,
                                     onClick = { onBookmarkClick(bookmark) },
                                     onEdit = { onEditBookmark(bookmark) },
@@ -265,6 +273,7 @@ fun BookmarkListDragGrid(
                         FolderChildrenGridRow(
                             folderId = bookmark.id,
                             viewModel = viewModel,
+                            backdrop = backdrop,
                             onClick = onFolderChildClick,
                             onEdit = onFolderChildEdit,
                             onDelete = onFolderChildDelete,
@@ -301,6 +310,7 @@ fun BookmarkListDragGrid(
                 FolderGridCard(
                     bookmark = draggedBookmark,
                     isExpanded = draggedBookmark.id in expandedFolders,
+                    backdrop = backdrop,
                     mergeHighlighted = mergeHighlightId == draggedBookmark.id,
                     onClick = {},
                     onAddBookmarks = {},
@@ -311,6 +321,7 @@ fun BookmarkListDragGrid(
                 BookmarkGridCard(
                     bookmark = draggedBookmark,
                     icon = icons[draggedBookmark.id],
+                    backdrop = backdrop,
                     mergeHighlighted = mergeHighlightId == draggedBookmark.id,
                     onClick = {},
                     onEdit = {},

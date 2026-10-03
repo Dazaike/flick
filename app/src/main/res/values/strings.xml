@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Flick</string>
+    <string name="shortcut_open_menu_short">Open menu</string>
+    <string name="shortcut_open_menu_long">Open Flick menu</string>
 </resources>

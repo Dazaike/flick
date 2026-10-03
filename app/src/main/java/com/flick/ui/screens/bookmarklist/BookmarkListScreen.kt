@@ -1,64 +1,28 @@
 package com.flick.ui.screens.bookmarklist
 
 import android.graphics.Bitmap
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ViewList
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Android
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -70,13 +34,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.Image
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.flick.action.BookmarkActionExecutor
@@ -84,13 +49,31 @@ import com.flick.data.model.Bookmark
 import com.flick.data.model.BookmarkAction
 import com.flick.overlay.OverlayService
 import com.flick.permissions.OverlayPermissionHelper
+import com.flick.ui.prism.ButtonVariant
+import com.flick.ui.prism.ConfirmDialog
+import com.flick.ui.prism.GlassCheckbox
+import com.flick.ui.prism.GlassDialog
+import com.flick.ui.prism.GlassIconButton
+import com.flick.ui.prism.HapticKind
+import com.flick.ui.prism.LocalHaptics
+import com.flick.ui.prism.LocalToasts
+import com.flick.ui.prism.PrismIcon
+import com.flick.ui.prism.PrismIcons
+import com.flick.ui.prism.PrismListItem
+import com.flick.ui.prism.PrismScreen
+import com.flick.ui.prism.ToastKind
+import com.flick.ui.prism.pressInput
+import com.flick.ui.prism.rememberPressState
 import com.flick.ui.theme.DURATION_MEDIUM
 import com.flick.ui.theme.LocalMotion
+import com.flick.ui.theme.Prism
+import com.flick.ui.theme.PrismText
 import com.flick.ui.theme.ThemePreferences
-import com.flick.ui.theme.flickSpring
-import com.flick.ui.theme.flickTween
+import com.kyant.backdrop.Backdrop
+import com.kyant.shapes.RoundedRectangle
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlin.math.max
 
 /** How long a dragged grid card must dwell over another's slot to trigger a folder merge. */
 private const val MERGE_DWELL_MS = 450L
@@ -108,90 +91,85 @@ fun BookmarkListScreen(
     val defaultCategoryId by viewModel.defaultCategoryId.collectAsState()
     val context = LocalContext.current
     val executor = remember { BookmarkActionExecutor() }
-    val snackbarHostState = remember { SnackbarHostState() }
-    val snackbarScope = rememberCoroutineScope()
+    val toasts = LocalToasts.current
+    val scope = rememberCoroutineScope()
     val themePreferences = remember { ThemePreferences(context.applicationContext) }
     val motion = LocalMotion.current
     var gridView by remember { mutableStateOf(false) }
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         themePreferences.gridView.collectLatest { gridView = it }
     }
 
-    Scaffold(
+    val launchBookmark: (BookmarkAction) -> Unit = { action ->
+        if (!executor.execute(context, action)) {
+            toasts.show("Couldn't launch bookmark", ToastKind.Error)
+        }
+    }
+
+    PrismScreen(
+        title = "Flick",
         modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Flick") },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            val newValue = !gridView
-                            gridView = newValue
-                            snackbarScope.launch { themePreferences.setGridView(newValue) }
-                        },
-                        modifier = Modifier
-                            .padding(2.dp)
-                    ) {
-                        AnimatedContent(
-                            targetState = gridView,
-                            transitionSpec = {
-                                (scaleIn(motion.flickSpring()) + fadeIn(motion.flickTween(DURATION_MEDIUM))) togetherWith
-                                    (scaleOut(motion.flickTween(120)) + fadeOut(motion.flickTween(120)))
-                            },
-                            label = "viewToggleIcon"
-                        ) { isGrid ->
-                            Icon(
-                                imageVector = if (isGrid) Icons.AutoMirrored.Filled.ViewList else Icons.Filled.GridView,
-                                contentDescription = if (isGrid) "Switch to list view" else "Switch to grid view"
+        actions = { bd ->
+            GlassIconButton(
+                backdrop = bd,
+                icon = if (gridView) PrismIcons.ViewList else PrismIcons.Grid,
+                contentDescription = if (gridView) "Switch to list view" else "Switch to grid view",
+                onClick = {
+                    val newValue = !gridView
+                    gridView = newValue
+                    scope.launch { themePreferences.setGridView(newValue) }
+                },
+                size = 44.dp
+            )
+            GlassIconButton(
+                backdrop = bd,
+                icon = PrismIcons.Settings,
+                contentDescription = "Settings",
+                onClick = onOpenSettings,
+                size = 44.dp
+            )
+            GlassIconButton(
+                backdrop = bd,
+                icon = PrismIcons.Palette,
+                contentDescription = "Icon packs",
+                onClick = onOpenIconPacks,
+                size = 44.dp
+            )
+            GlassIconButton(
+                backdrop = bd,
+                icon = PrismIcons.Play,
+                contentDescription = "Show overlay (debug)",
+                onClick = {
+                    if (OverlayPermissionHelper.canDrawOverlays(context)) {
+                        runCatching {
+                            ContextCompat.startForegroundService(
+                                context,
+                                android.content.Intent(context, OverlayService::class.java)
                             )
+                        }.onFailure {
+                            toasts.show("Couldn't show overlay", ToastKind.Error)
                         }
+                    } else {
+                        context.startActivity(
+                            OverlayPermissionHelper.requestOverlayPermissionIntent(context)
+                        )
                     }
-                    BorderedIconButton(
-                        icon = Icons.Filled.Settings,
-                        contentDescription = "Settings",
-                        onClick = onOpenSettings
-                    )
-                    BorderedIconButton(
-                        icon = Icons.Filled.Palette,
-                        contentDescription = "Icon packs",
-                        onClick = onOpenIconPacks
-                    )
-                    BorderedIconButton(
-                        icon = Icons.Filled.PlayArrow,
-                        contentDescription = "Show overlay (debug)",
-                        onClick = {
-                            if (OverlayPermissionHelper.canDrawOverlays(context)) {
-                                runCatching {
-                                    ContextCompat.startForegroundService(
-                                        context,
-                                        android.content.Intent(context, OverlayService::class.java)
-                                    )
-                                }.onFailure {
-                                    snackbarScope.launch {
-                                        snackbarHostState.showSnackbar("Couldn't show overlay")
-                                    }
-                                }
-                            } else {
-                                context.startActivity(
-                                    OverlayPermissionHelper.requestOverlayPermissionIntent(context)
-                                )
-                            }
-                        }
-                    )
-                }
+                },
+                size = 44.dp
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
+        floatingAction = { bd ->
+            GlassIconButton(
+                backdrop = bd,
+                icon = PrismIcons.Plus,
+                contentDescription = "Add bookmark",
                 onClick = { defaultCategoryId?.let { onAddBookmark(it) } },
-                modifier = Modifier
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add bookmark")
-            }
+                variant = ButtonVariant.Primary,
+                size = 56.dp
+            )
         }
-    ) { padding ->
+    ) { padding, contentBackdrop ->
         if (bookmarks.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
@@ -199,9 +177,9 @@ fun BookmarkListScreen(
             ) {
                 AnimatedVisibility(
                     visible = true,
-                    enter = fadeIn(motion.flickTween(DURATION_MEDIUM)) + scaleIn(motion.flickSpring(), initialScale = 0.8f)
+                    enter = fadeIn(motion.fade(DURATION_MEDIUM)) + scaleIn(motion.glide(), initialScale = 0.8f)
                 ) {
-                    Text("No bookmarks yet — tap + to add one")
+                    PrismText("No bookmarks yet — tap + to add one", color = Prism.subText)
                 }
             }
         } else {
@@ -232,25 +210,14 @@ fun BookmarkListScreen(
                     icons = icons,
                     expandedFolders = expandedFolders,
                     contentPadding = padding,
+                    backdrop = contentBackdrop,
                     viewModel = viewModel,
                     onToggleFolderExpanded = toggleFolderExpanded,
                     onFolderAddBookmarks = { folderAddingTo = it },
                     onRequestDelete = requestDelete,
-                    onBookmarkClick = { bookmark ->
-                        if (!executor.execute(context, bookmark.action)) {
-                            snackbarScope.launch {
-                                snackbarHostState.showSnackbar("Couldn't launch bookmark")
-                            }
-                        }
-                    },
+                    onBookmarkClick = { bookmark -> launchBookmark(bookmark.action) },
                     onEditBookmark = { editingBookmark = it },
-                    onFolderChildClick = { child ->
-                        if (!executor.execute(context, child.action)) {
-                            snackbarScope.launch {
-                                snackbarHostState.showSnackbar("Couldn't launch bookmark")
-                            }
-                        }
-                    },
+                    onFolderChildClick = { child -> launchBookmark(child.action) },
                     onFolderChildEdit = { editingBookmark = it },
                     onFolderChildDelete = requestDelete,
                     onRemoveFromFolder = { viewModel.removeFromFolder(it) },
@@ -263,34 +230,33 @@ fun BookmarkListScreen(
                     }
                 )
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = padding
+                ) {
                     bookmarks.forEach { bookmark ->
                         item(key = bookmark.id) {
                             if (bookmark.action is BookmarkAction.Folder) {
                                 FolderListRow(
                                     bookmark = bookmark,
                                     isExpanded = bookmark.id in expandedFolders,
+                                    backdrop = contentBackdrop,
                                     onClick = { toggleFolderExpanded(bookmark.id) },
                                     onAddBookmarks = { folderAddingTo = bookmark },
                                     onDelete = { requestDelete(bookmark) },
-                                    modifier = Modifier.animateItem(placementSpec = motion.flickSpring())
+                                    modifier = Modifier.animateItem(placementSpec = motion.glide())
                                 )
                             } else {
                                 BookmarkRow(
                                     bookmark = bookmark,
                                     icon = icons[bookmark.id],
-                                    onClick = {
-                                        if (!executor.execute(context, bookmark.action)) {
-                                            snackbarScope.launch {
-                                                snackbarHostState.showSnackbar("Couldn't launch bookmark")
-                                            }
-                                        }
-                                    },
+                                    backdrop = contentBackdrop,
+                                    onClick = { launchBookmark(bookmark.action) },
                                     onEdit = { editingBookmark = bookmark },
                                     onDelete = { requestDelete(bookmark) },
                                     onMoveUp = { viewModel.moveUp(bookmark) },
                                     onMoveDown = { viewModel.moveDown(bookmark) },
-                                    modifier = Modifier.animateItem(placementSpec = motion.flickSpring())
+                                    modifier = Modifier.animateItem(placementSpec = motion.glide())
                                 )
                             }
                         }
@@ -300,13 +266,8 @@ fun BookmarkListScreen(
                                 FolderChildrenList(
                                     folderId = bookmark.id,
                                     viewModel = viewModel,
-                                    onClick = { child ->
-                                        if (!executor.execute(context, child.action)) {
-                                            snackbarScope.launch {
-                                                snackbarHostState.showSnackbar("Couldn't launch bookmark")
-                                            }
-                                        }
-                                    },
+                                    backdrop = contentBackdrop,
+                                    onClick = { child -> launchBookmark(child.action) },
                                     onEdit = { child -> editingBookmark = child },
                                     onDelete = { child -> requestDelete(child) },
                                     onRemoveFromFolder = { child -> viewModel.removeFromFolder(child) }
@@ -318,21 +279,17 @@ fun BookmarkListScreen(
             }
 
             folderPendingDelete?.let { folder ->
-                AlertDialog(
-                    onDismissRequest = { folderPendingDelete = null },
-                    title = { Text("Delete \"${folder.label}\"?") },
-                    text = { Text("This will also delete everything inside this folder. This can't be undone.") },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            viewModel.delete(folder)
-                            folderPendingDelete = null
-                        }) {
-                            Text("Delete")
-                        }
+                ConfirmDialog(
+                    visible = true,
+                    title = "Delete \"${folder.label}\"?",
+                    message = "This will also delete everything inside this folder. This can't be undone.",
+                    confirmLabel = "Delete",
+                    onConfirm = {
+                        viewModel.delete(folder)
+                        folderPendingDelete = null
                     },
-                    dismissButton = {
-                        TextButton(onClick = { folderPendingDelete = null }) { Text("Cancel") }
-                    }
+                    onDismiss = { folderPendingDelete = null },
+                    destructive = true
                 )
             }
 
@@ -364,19 +321,24 @@ fun BookmarkListScreen(
     }
 }
 
+/** Small flat glass action button used in rows and cards. */
 @Composable
-private fun BorderedIconButton(
-    icon: ImageVector,
-    contentDescription: String?,
-    onClick: () -> Unit
+private fun RowIconButton(
+    backdrop: Backdrop,
+    icon: Int,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    IconButton(
+    GlassIconButton(
+        backdrop = backdrop,
+        icon = icon,
+        contentDescription = contentDescription,
         onClick = onClick,
-        modifier = Modifier
-            .padding(2.dp)
-    ) {
-        Icon(icon, contentDescription = contentDescription)
-    }
+        modifier = modifier,
+        variant = ButtonVariant.Ghost,
+        size = 36.dp
+    )
 }
 
 @Composable
@@ -393,15 +355,50 @@ private fun BookmarkIcon(icon: Bitmap?, modifier: Modifier = Modifier) {
                 .clip(CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Filled.Android, contentDescription = null)
+            PrismIcon(PrismIcons.App, null, size = 24.dp)
         }
     }
+}
+
+/** Rounded container card with press highlight and optional merge-target outline. */
+@Composable
+private fun CardSurface(
+    onClick: () -> Unit,
+    mergeHighlighted: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val colors = Prism.colors
+    val accent = Prism.accent
+    val haptics = LocalHaptics.current
+    val press = rememberPressState()
+    val shape = RoundedRectangle(20.dp)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(4.dp)
+            .height(140.dp)
+            .clip(shape)
+            .background(colors.container)
+            .then(if (mergeHighlighted) Modifier.border(2.dp, accent, shape) else Modifier)
+            .drawBehind {
+                val a = colors.fillWeak.alpha * max(press.hover, press.progress * 1.6f)
+                if (a > 0f) drawRect(colors.fillWeak.copy(alpha = a))
+            }
+            .pressInput(press)
+            .clickable(interactionSource = press.interactionSource, indication = null, role = Role.Button) {
+                haptics.perform(HapticKind.Tick)
+                onClick()
+            },
+        content = content
+    )
 }
 
 @Composable
 private fun BookmarkRow(
     bookmark: Bookmark,
     icon: Bitmap?,
+    backdrop: Backdrop,
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -410,23 +407,24 @@ private fun BookmarkRow(
     onRemoveFromFolder: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    ListItem(
-        leadingContent = { BookmarkIcon(icon = icon, modifier = Modifier.size(40.dp)) },
-        headlineContent = { Text(bookmark.label) },
-        supportingContent = { Text(bookmark.action::class.simpleName ?: "") },
-        trailingContent = {
+    PrismListItem(
+        headline = bookmark.label,
+        supporting = bookmark.action::class.simpleName ?: "",
+        leading = { BookmarkIcon(icon = icon, modifier = Modifier.size(40.dp)) },
+        trailing = {
             Row {
                 if (onRemoveFromFolder != null) {
-                    BorderedIconButton(Icons.Filled.Close, "Remove from folder", onRemoveFromFolder)
+                    RowIconButton(backdrop, PrismIcons.Close, "Remove from folder", onRemoveFromFolder)
                 } else {
-                    BorderedIconButton(Icons.Filled.KeyboardArrowUp, "Move up", onMoveUp)
-                    BorderedIconButton(Icons.Filled.KeyboardArrowDown, "Move down", onMoveDown)
+                    RowIconButton(backdrop, PrismIcons.ChevronUp, "Move up", onMoveUp)
+                    RowIconButton(backdrop, PrismIcons.ChevronDown, "Move down", onMoveDown)
                 }
-                BorderedIconButton(Icons.Filled.Edit, "Edit", onEdit)
-                BorderedIconButton(Icons.Filled.Delete, "Delete", onDelete)
+                RowIconButton(backdrop, PrismIcons.Edit, "Edit", onEdit)
+                RowIconButton(backdrop, PrismIcons.Trash, "Delete", onDelete)
             }
         },
-        modifier = modifier.clickable(onClick = onClick)
+        onClick = onClick,
+        modifier = modifier
     )
 }
 
@@ -434,6 +432,7 @@ private fun BookmarkRow(
 internal fun BookmarkGridCard(
     bookmark: Bookmark,
     icon: Bitmap?,
+    backdrop: Backdrop,
     onClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -441,38 +440,27 @@ internal fun BookmarkGridCard(
     mergeHighlighted: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(4.dp)
-            .height(140.dp)
-            .then(
-                if (mergeHighlighted) {
-                    Modifier.border(BorderStroke(2.dp, MaterialTheme.colorScheme.primary), RoundedCornerShape(12.dp))
-                } else {
-                    Modifier
-                }
-            )
-            .clickable(onClick = onClick)
-    ) {
+    CardSurface(onClick = onClick, mergeHighlighted = mergeHighlighted, modifier = modifier) {
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             BookmarkIcon(icon = icon, modifier = Modifier.size(40.dp))
-            Text(
+            PrismText(
                 text = bookmark.label,
+                fontSize = 14.sp,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
             )
             Row(horizontalArrangement = Arrangement.Center) {
                 if (onRemoveFromFolder != null) {
-                    BorderedIconButton(Icons.Filled.Close, "Remove from folder", onRemoveFromFolder)
+                    RowIconButton(backdrop, PrismIcons.Close, "Remove from folder", onRemoveFromFolder)
                 }
-                BorderedIconButton(Icons.Filled.Edit, "Edit", onEdit)
-                BorderedIconButton(Icons.Filled.Delete, "Delete", onDelete)
+                RowIconButton(backdrop, PrismIcons.Edit, "Edit", onEdit)
+                RowIconButton(backdrop, PrismIcons.Trash, "Delete", onDelete)
             }
         }
     }
@@ -483,6 +471,7 @@ internal fun BookmarkGridCard(
 private fun FolderListRow(
     bookmark: Bookmark,
     isExpanded: Boolean,
+    backdrop: Backdrop,
     onClick: () -> Unit,
     onAddBookmarks: () -> Unit,
     onDelete: () -> Unit,
@@ -490,26 +479,28 @@ private fun FolderListRow(
     viewModel: BookmarkListViewModel = hiltViewModel()
 ) {
     val children by viewModel.observeChildren(bookmark.id).collectAsState(initial = emptyList())
-    ListItem(
-        leadingContent = {
+    PrismListItem(
+        headline = bookmark.label,
+        supporting = "${children.size} item${if (children.size == 1) "" else "s"}",
+        leading = {
             Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Folder, contentDescription = null)
+                PrismIcon(PrismIcons.Folder, null, size = 24.dp)
             }
         },
-        headlineContent = { Text(bookmark.label) },
-        supportingContent = { Text("${children.size} item${if (children.size == 1) "" else "s"}") },
-        trailingContent = {
+        trailing = {
             Row {
-                BorderedIconButton(Icons.AutoMirrored.Filled.PlaylistAdd, "Add bookmarks", onAddBookmarks)
-                BorderedIconButton(
-                    if (isExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                RowIconButton(backdrop, PrismIcons.FolderPlus, "Add bookmarks", onAddBookmarks)
+                RowIconButton(
+                    backdrop,
+                    if (isExpanded) PrismIcons.ChevronUp else PrismIcons.ChevronDown,
                     if (isExpanded) "Collapse" else "Expand",
                     onClick
                 )
-                BorderedIconButton(Icons.Filled.Delete, "Delete", onDelete)
+                RowIconButton(backdrop, PrismIcons.Trash, "Delete", onDelete)
             }
         },
-        modifier = modifier.clickable(onClick = onClick)
+        onClick = onClick,
+        modifier = modifier
     )
 }
 
@@ -518,6 +509,7 @@ private fun FolderListRow(
 internal fun FolderGridCard(
     bookmark: Bookmark,
     isExpanded: Boolean,
+    backdrop: Backdrop,
     onClick: () -> Unit,
     onAddBookmarks: () -> Unit,
     onDelete: () -> Unit,
@@ -526,49 +518,36 @@ internal fun FolderGridCard(
     viewModel: BookmarkListViewModel = hiltViewModel()
 ) {
     val children by viewModel.observeChildren(bookmark.id).collectAsState(initial = emptyList())
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(4.dp)
-            .height(140.dp)
-            .then(
-                if (mergeHighlighted) {
-                    Modifier.border(BorderStroke(2.dp, MaterialTheme.colorScheme.primary), RoundedCornerShape(12.dp))
-                } else {
-                    Modifier
-                }
+    CardSurface(onClick = onClick, mergeHighlighted = mergeHighlighted, modifier = modifier) {
+        RowIconButton(
+            backdrop = backdrop,
+            icon = PrismIcons.Trash,
+            contentDescription = "Delete folder",
+            onClick = onDelete,
+            modifier = Modifier.align(Alignment.TopEnd)
+        )
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            PrismIcon(PrismIcons.Folder, null, size = 40.dp)
+            PrismText(
+                text = "${bookmark.label} (${children.size})",
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
             )
-            .clickable(onClick = onClick)
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(36.dp)
-            ) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete folder")
-            }
-            Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(40.dp))
-                Text(
-                    text = "${bookmark.label} (${children.size})",
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth()
+            Row(horizontalArrangement = Arrangement.Center) {
+                RowIconButton(backdrop, PrismIcons.FolderPlus, "Add bookmarks", onAddBookmarks)
+                RowIconButton(
+                    backdrop,
+                    if (isExpanded) PrismIcons.ChevronUp else PrismIcons.ChevronDown,
+                    if (isExpanded) "Collapse" else "Expand",
+                    onClick
                 )
-                Row(horizontalArrangement = Arrangement.Center) {
-                    BorderedIconButton(Icons.AutoMirrored.Filled.PlaylistAdd, "Add bookmarks", onAddBookmarks)
-                    BorderedIconButton(
-                        if (isExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                        if (isExpanded) "Collapse" else "Expand",
-                        onClick
-                    )
-                }
             }
         }
     }
@@ -579,6 +558,7 @@ internal fun FolderGridCard(
 private fun FolderChildrenList(
     folderId: Long,
     viewModel: BookmarkListViewModel,
+    backdrop: Backdrop,
     onClick: (Bookmark) -> Unit,
     onEdit: (Bookmark) -> Unit,
     onDelete: (Bookmark) -> Unit,
@@ -590,8 +570,9 @@ private fun FolderChildrenList(
 
     Column(modifier = Modifier.padding(start = 24.dp)) {
         if (children.isEmpty()) {
-            Text(
+            PrismText(
                 text = "This folder is empty",
+                color = Prism.subText,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
@@ -599,6 +580,7 @@ private fun FolderChildrenList(
             BookmarkRow(
                 bookmark = child,
                 icon = childIcons[child.id],
+                backdrop = backdrop,
                 onClick = { onClick(child) },
                 onEdit = { onEdit(child) },
                 onDelete = { onDelete(child) },
@@ -613,6 +595,7 @@ private fun FolderChildrenList(
 internal fun FolderChildrenGridRow(
     folderId: Long,
     viewModel: BookmarkListViewModel,
+    backdrop: Backdrop,
     onClick: (Bookmark) -> Unit,
     onEdit: (Bookmark) -> Unit,
     onDelete: (Bookmark) -> Unit,
@@ -623,8 +606,9 @@ internal fun FolderChildrenGridRow(
     LaunchedEffect(children) { childIcons = viewModel.resolveIconsFor(children) }
 
     if (children.isEmpty()) {
-        Text(
+        PrismText(
             text = "This folder is empty",
+            color = Prism.subText,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
     } else {
@@ -634,6 +618,7 @@ internal fun FolderChildrenGridRow(
                     BookmarkGridCard(
                         bookmark = child,
                         icon = childIcons[child.id],
+                        backdrop = backdrop,
                         onClick = { onClick(child) },
                         onEdit = { onEdit(child) },
                         onDelete = { onDelete(child) },
@@ -656,63 +641,36 @@ private fun AddToFolderDialog(
 ) {
     var selected by remember { mutableStateOf(setOf<Long>()) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add to \"${folder.label}\"") },
-        text = {
-            if (candidates.isEmpty()) {
-                Text("No other bookmarks available to add.")
-            } else {
-                Column {
-                    candidates.forEach { candidate ->
-                        val isChecked = candidate.id in selected
-                        ListItem(
-                            leadingContent = { BookmarkIcon(icon = icons[candidate.id], modifier = Modifier.size(32.dp)) },
-                            headlineContent = { Text(candidate.label) },
-                            trailingContent = {
-                                Checkbox(
-                                    checked = isChecked,
-                                    onCheckedChange = { checked ->
-                                        selected = if (checked) selected + candidate.id else selected - candidate.id
-                                    }
-                                )
-                            },
-                            modifier = Modifier.clickable {
-                                selected = if (isChecked) selected - candidate.id else selected + candidate.id
+    GlassDialog(
+        visible = true,
+        title = "Add to \"${folder.label}\"",
+        onDismiss = onDismiss,
+        confirmLabel = "Add",
+        onConfirm = { onConfirm(selected.toList()) },
+        confirmEnabled = selected.isNotEmpty()
+    ) { _ ->
+        if (candidates.isEmpty()) {
+            PrismText("No other bookmarks available to add.", color = Prism.subText)
+        } else {
+            candidates.forEach { candidate ->
+                val isChecked = candidate.id in selected
+                val toggle = {
+                    selected = if (isChecked) selected - candidate.id else selected + candidate.id
+                }
+                PrismListItem(
+                    headline = candidate.label,
+                    leading = { BookmarkIcon(icon = icons[candidate.id], modifier = Modifier.size(32.dp)) },
+                    trailing = {
+                        GlassCheckbox(
+                            checked = isChecked,
+                            onCheckedChange = { checked ->
+                                selected = if (checked) selected + candidate.id else selected - candidate.id
                             }
                         )
-                    }
-                }
+                    },
+                    onClick = toggle
+                )
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(selected.toList()) },
-                enabled = selected.isNotEmpty()
-            ) {
-                Text("Add")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun BookmarkRowPreview() {
-    BookmarkRow(
-        bookmark = Bookmark(
-            id = 1,
-            categoryId = 1,
-            label = "Example",
-            sortOrder = 0,
-            action = com.flick.data.model.BookmarkAction.WebUrl("https://example.com")
-        ),
-        icon = null,
-        onClick = {},
-        onEdit = {},
-        onDelete = {}
-    )
+    }
 }

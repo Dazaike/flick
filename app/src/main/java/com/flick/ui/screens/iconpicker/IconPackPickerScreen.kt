@@ -1,18 +1,10 @@
 package com.flick.ui.screens.iconpicker
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,6 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.launch
+import androidx.compose.ui.unit.dp
+import com.flick.ui.prism.GlassRadio
+import com.flick.ui.prism.PrismListItem
+import com.flick.ui.prism.PrismScreen
+import com.flick.ui.prism.Spinner
+import com.flick.ui.theme.Prism
 
 @Composable
 fun IconPackPickerScreen(
@@ -36,39 +34,44 @@ fun IconPackPickerScreen(
         scope.launch { onDone() }
     }
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Icon pack") }) }
-    ) { padding ->
+    PrismScreen(title = "Icon pack") { padding, _ ->
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                Spinner(
+                    modifier = Modifier.align(Alignment.Center),
+                    size = 32.dp,
+                    color = Prism.accent
+                )
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = padding
+            ) {
                 item {
-                    ListItem(
-                        headlineContent = { Text("Default (no icon pack)") },
-                        leadingContent = {
-                            RadioButton(selected = activePack == null, onClick = { selectAndClose(null) })
+                    PrismListItem(
+                        headline = "Default (no icon pack)",
+                        leading = {
+                            GlassRadio(selected = activePack == null, onClick = { selectAndClose(null) })
                         },
-                        modifier = Modifier.clickable { selectAndClose(null) }
+                        onClick = { selectAndClose(null) }
                     )
                 }
                 items(packs, key = { it.packageName }) { pack ->
-                    ListItem(
-                        headlineContent = { Text(pack.label) },
-                        supportingContent = { Text(pack.packageName) },
-                        leadingContent = {
-                            RadioButton(
+                    PrismListItem(
+                        headline = pack.label,
+                        supporting = pack.packageName,
+                        leading = {
+                            GlassRadio(
                                 selected = activePack == pack.packageName,
                                 onClick = { selectAndClose(pack.packageName) }
                             )
                         },
-                        modifier = Modifier.clickable { selectAndClose(pack.packageName) }
+                        onClick = { selectAndClose(pack.packageName) }
                     )
                 }
                 if (packs.isEmpty()) {
-                    item { ListItem(headlineContent = { Text("No icon packs found on this device") }) }
+                    item { PrismListItem(headline = "No icon packs found on this device") }
                 }
             }
         }

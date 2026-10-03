@@ -1,9 +1,11 @@
 package com.flick.ui.theme
 
 import android.content.Context
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -13,26 +15,34 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private val Context.themeDataStore by preferencesDataStore(name = "theme_prefs")
-private val AMOLED_MODE_KEY = booleanPreferencesKey("amoled_mode")
 private val GRID_VIEW_KEY = booleanPreferencesKey("grid_view")
-private val COLOR_MODE_KEY = stringPreferencesKey("color_mode")
-private val ANIMATIONS_ENABLED_KEY = booleanPreferencesKey("animations_enabled")
-private val ANIMATION_INTENSITY_KEY = floatPreferencesKey("animation_intensity")
+private val THEME_KEY = stringPreferencesKey("theme")
+private val ACCENT_KEY = intPreferencesKey("accent")
+private val HAPTICS_KEY = booleanPreferencesKey("haptics")
+private val HAPTIC_STRENGTH_KEY = floatPreferencesKey("haptic_strength")
+private val ANIM_SPEED_KEY = floatPreferencesKey("anim_speed")
+private val MOTION_INTENSITY_KEY = floatPreferencesKey("motion_intensity")
+private val REDUCE_MOTION_KEY = booleanPreferencesKey("reduce_motion")
+private val BRIGHTNESS_KEY = floatPreferencesKey("brightness")
 
-enum class ColorMode { DYNAMIC, BRAND }
+private fun Preferences.toUiSettings(): UiSettings {
+    val d = UiSettings()
+    return UiSettings(
+        theme = ThemeMode.entries.firstOrNull { it.name == this[THEME_KEY] } ?: d.theme,
+        accent = this[ACCENT_KEY] ?: d.accent,
+        haptics = this[HAPTICS_KEY] ?: d.haptics,
+        hapticStrength = (this[HAPTIC_STRENGTH_KEY] ?: d.hapticStrength).coerceIn(0.25f, 1f),
+        animationSpeed = (this[ANIM_SPEED_KEY] ?: d.animationSpeed).coerceIn(0.5f, 2f),
+        motionIntensity = (this[MOTION_INTENSITY_KEY] ?: d.motionIntensity).coerceIn(0f, 1f),
+        reduceMotion = this[REDUCE_MOTION_KEY] ?: d.reduceMotion,
+        brightness = (this[BRIGHTNESS_KEY] ?: d.brightness).coerceIn(0.5f, 1.5f),
+    )
+}
 
 @Singleton
 class ThemePreferences @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    val amoledMode: Flow<Boolean> = context.themeDataStore.data.map { prefs ->
-        prefs[AMOLED_MODE_KEY] ?: false
-    }
-
-    suspend fun setAmoledMode(enabled: Boolean) {
-        context.themeDataStore.edit { prefs -> prefs[AMOLED_MODE_KEY] = enabled }
-    }
-
     val gridView: Flow<Boolean> = context.themeDataStore.data.map { prefs ->
         prefs[GRID_VIEW_KEY] ?: false
     }
@@ -41,29 +51,29 @@ class ThemePreferences @Inject constructor(
         context.themeDataStore.edit { prefs -> prefs[GRID_VIEW_KEY] = enabled }
     }
 
-    val colorMode: Flow<ColorMode> = context.themeDataStore.data.map { prefs ->
-        prefs[COLOR_MODE_KEY]?.let { runCatching { ColorMode.valueOf(it) }.getOrNull() } ?: ColorMode.DYNAMIC
-    }
+    val ui: Flow<UiSettings> = context.themeDataStore.data.map { it.toUiSettings() }
 
-    suspend fun setColorMode(mode: ColorMode) {
-        context.themeDataStore.edit { prefs -> prefs[COLOR_MODE_KEY] = mode.name }
-    }
-
-    val animationsEnabled: Flow<Boolean> = context.themeDataStore.data.map { prefs ->
-        prefs[ANIMATIONS_ENABLED_KEY] ?: true
-    }
-
-    suspend fun setAnimationsEnabled(enabled: Boolean) {
-        context.themeDataStore.edit { prefs -> prefs[ANIMATIONS_ENABLED_KEY] = enabled }
-    }
-
-    val animationIntensity: Flow<Float> = context.themeDataStore.data.map { prefs ->
-        prefs[ANIMATION_INTENSITY_KEY] ?: 1f
-    }
-
-    suspend fun setAnimationIntensity(intensity: Float) {
+    /** Applies [transform] to the current settings and writes only the keys that changed. */
+    suspend fun update(transform: (UiSettings) -> UiSettings) {
         context.themeDataStore.edit { prefs ->
-            prefs[ANIMATION_INTENSITY_KEY] = intensity.coerceIn(0.1f, 1f)
+            val old = prefs.toUiSettings()
+            val new = transform(old)
+            if (new.theme != old.theme) prefs[THEME_KEY] = new.theme.name
+            if (new.accent != old.accent) prefs[ACCENT_KEY] = new.accent
+            if (new.haptics != old.haptics) prefs[HAPTICS_KEY] = new.haptics
+            if (new.hapticStrength != old.hapticStrength) {
+                prefs[HAPTIC_STRENGTH_KEY] = new.hapticStrength.coerceIn(0.25f, 1f)
+            }
+            if (new.animationSpeed != old.animationSpeed) {
+                prefs[ANIM_SPEED_KEY] = new.animationSpeed.coerceIn(0.5f, 2f)
+            }
+            if (new.motionIntensity != old.motionIntensity) {
+                prefs[MOTION_INTENSITY_KEY] = new.motionIntensity.coerceIn(0f, 1f)
+            }
+            if (new.reduceMotion != old.reduceMotion) prefs[REDUCE_MOTION_KEY] = new.reduceMotion
+            if (new.brightness != old.brightness) {
+                prefs[BRIGHTNESS_KEY] = new.brightness.coerceIn(0.5f, 1.5f)
+            }
         }
     }
 }

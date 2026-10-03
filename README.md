@@ -12,11 +12,13 @@ Android quick-launch overlay for pinning apps, shortcuts, widgets, contacts, URL
 - Icon pack support
 - Folders and categories
 - Edge-gesture fallback when the assistant role is unavailable
+- Launcher shortcut: long-press the app icon → Open menu
+- Prism liquid-glass UI (System/Light/Dark, accent colour, surface brightness, motion and haptics settings; popup glass needs Android 13+)
 
 ## Requirements
 
 - Android 12+ (API 31)
-- Android Studio Hedgehog or newer (to build from source)
+- Android Studio Otter or newer, JDK 17+, and Android SDK 37 (to build from source; Gradle 9.3.1 via the wrapper)
 - Overlay, notification, and package-query permissions (requested in-app)
 
 ## Install

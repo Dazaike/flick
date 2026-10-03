@@ -4,14 +4,11 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,102 +16,128 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.flick.permissions.OverlayPermissionHelper
 import com.flick.trigger.AssistantRoleHelper
 import com.flick.trigger.fallback.EdgeGestureOverlayService
-import com.flick.ui.theme.ColorMode
+import com.flick.ui.prism.AccentPicker
+import com.flick.ui.prism.ButtonVariant
+import com.flick.ui.prism.GlassButton
+import com.flick.ui.prism.GlassIconButton
+import com.flick.ui.prism.GlassSegmented
+import com.flick.ui.prism.GlassSwitch
+import com.flick.ui.prism.GlassValueSlider
+import com.flick.ui.prism.PrismIcons
+import com.flick.ui.prism.PrismListItem
+import com.flick.ui.prism.PrismScreen
 import com.flick.ui.theme.DURATION_MEDIUM
 import com.flick.ui.theme.DURATION_QUICK
 import com.flick.ui.theme.LocalMotion
-import com.flick.ui.theme.flickSpring
-import com.flick.ui.theme.flickTween
+import com.flick.ui.theme.Prism
+import com.flick.ui.theme.PrismText
+import com.flick.ui.theme.ThemeMode
+import com.flick.ui.theme.UiSettings
+import com.kyant.backdrop.Backdrop
+import kotlin.math.roundToInt
 
 @Composable
-private fun SectionHeader(title: String, expanded: Boolean, onToggle: () -> Unit) {
+private fun SectionHeader(
+    backdrop: Backdrop,
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp, bottom = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title)
-        IconButton(onClick = onToggle) {
-            Icon(
-                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                contentDescription = if (expanded) "Collapse" else "Expand"
-            )
-        }
+        PrismText(title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        GlassIconButton(
+            backdrop = backdrop,
+            icon = if (expanded) PrismIcons.ChevronUp else PrismIcons.ChevronDown,
+            contentDescription = if (expanded) "Collapse" else "Expand",
+            onClick = onToggle,
+            variant = ButtonVariant.Ghost,
+            size = 40.dp
+        )
     }
 }
 
 @Composable
-private fun BouncySwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    val motion = LocalMotion.current
-    val scale by animateFloatAsState(
-        targetValue = if (checked) 1.08f else 1f,
-        animationSpec = motion.flickSpring(),
-        label = "switchBounce"
-    )
-    Switch(
-        checked = checked,
-        onCheckedChange = onCheckedChange,
-        modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
-    )
+private fun SettingRow(
+    title: String,
+    supporting: String?,
+    control: @Composable () -> Unit
+) {
+    PrismListItem(headline = title, supporting = supporting, trailing = control)
 }
 
 @Composable
-private fun AnimatedPercentLabel(text: String) {
-    val motion = LocalMotion.current
-    AnimatedContent(
-        targetState = text,
-        transitionSpec = {
-            (fadeIn(motion.flickTween(120)) togetherWith fadeOut(motion.flickTween(80)))
-        },
-        label = "percentLabel"
-    ) { value ->
-        Text(value)
+private fun SliderRow(
+    title: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    enabled: Boolean = true,
+    format: (Float) -> String,
+    onChange: (Float) -> Unit,
+    onCommit: (() -> Unit)? = null,
+    stepCount: Int = 0
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        PrismText("$title: ${format(value)}", fontSize = 15.sp)
+        GlassValueSlider(
+            value = value,
+            onValueChange = onChange,
+            valueRange = range,
+            enabled = enabled,
+            stepCount = stepCount,
+            valueLabel = format,
+            onValueChangeFinished = onCommit
+        )
     }
 }
+
+private fun percent(value: Float): String = "${(value * 100).roundToInt()}%"
+
+private fun dpLabel(value: Float): String = "${value.roundToInt()} dp"
 
 @Composable
 private fun ExpandableSection(
+    backdrop: Backdrop,
     title: String,
     expanded: Boolean,
     onToggle: () -> Unit,
     content: @Composable () -> Unit
 ) {
     val motion = LocalMotion.current
-    SectionHeader(title = title, expanded = expanded, onToggle = onToggle)
+    SectionHeader(backdrop = backdrop, title = title, expanded = expanded, onToggle = onToggle)
     AnimatedVisibility(
         visible = expanded,
-        enter = fadeIn(motion.flickTween(DURATION_MEDIUM)) + expandVertically(motion.flickSpring()),
-        exit = fadeOut(motion.flickTween(DURATION_QUICK)) + shrinkVertically(motion.flickSpring())
+        enter = fadeIn(motion.fade(DURATION_MEDIUM)) + expandVertically(motion.glide()),
+        exit = fadeOut(motion.fade(DURATION_QUICK)) + shrinkVertically(motion.glide())
     ) {
         content()
     }
@@ -122,6 +145,7 @@ private fun ExpandableSection(
 
 @Composable
 private fun AssistantTriggerSection(
+    backdrop: Backdrop,
     roleHeld: Boolean,
     onRoleRequestResult: (Boolean) -> Unit
 ) {
@@ -139,25 +163,35 @@ private fun AssistantTriggerSection(
         }
     }
 
-    Text("Primary trigger: Assistant gesture")
-    Text(if (roleHeld) "Flick currently holds the Assistant role." else "Assistant role not held.")
-    Text("Note: holding this role replaces Google Assistant/Gemini system-wide on this device.")
-    Button(
-        onClick = {
-            val intent = if (!roleHeld && AssistantRoleHelper.isRoleAvailable(context)) {
-                AssistantRoleHelper.createRequestRoleIntent(context)
-            } else {
-                AssistantRoleHelper.createAssistantSettingsIntent(context)
-            }
-            runCatching { roleRequestLauncher.launch(intent) }
-                .onFailure {
-                    runCatching { context.startActivity(AssistantRoleHelper.createAssistantSettingsIntent(context)) }
-                        .onFailure { Toast.makeText(context, "Couldn't open Assistant settings", Toast.LENGTH_SHORT).show() }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PrismText("Primary trigger: Assistant gesture", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        PrismText(
+            if (roleHeld) "Flick currently holds the Assistant role." else "Assistant role not held.",
+            fontSize = 14.sp,
+            color = Prism.subText
+        )
+        PrismText(
+            "Note: holding this role replaces Google Assistant/Gemini system-wide on this device.",
+            fontSize = 14.sp,
+            color = Prism.subText
+        )
+        GlassButton(
+            backdrop = backdrop,
+            text = if (roleHeld) "Assistant settings" else "Choose default Assistant",
+            onClick = {
+                val intent = if (!roleHeld && AssistantRoleHelper.isRoleAvailable(context)) {
+                    AssistantRoleHelper.createRequestRoleIntent(context)
+                } else {
+                    AssistantRoleHelper.createAssistantSettingsIntent(context)
                 }
-        },
-        modifier = Modifier.padding(top = 8.dp, bottom = 24.dp)
-    ) {
-        Text(if (roleHeld) "Assistant settings" else "Choose default Assistant")
+                runCatching { roleRequestLauncher.launch(intent) }
+                    .onFailure {
+                        runCatching { context.startActivity(AssistantRoleHelper.createAssistantSettingsIntent(context)) }
+                            .onFailure { Toast.makeText(context, "Couldn't open Assistant settings", Toast.LENGTH_SHORT).show() }
+                    }
+            },
+            variant = ButtonVariant.Primary
+        )
     }
 }
 
@@ -165,9 +199,6 @@ private fun AssistantTriggerSection(
 private fun PopupSettingsSection(
     showAppNames: Boolean,
     onShowAppNamesChange: (Boolean) -> Unit,
-    blurIntensity: Float,
-    onBlurIntensityChange: (Float) -> Unit,
-    onBlurIntensityCommit: () -> Unit,
     popupOpacity: Float,
     onPopupOpacityChange: (Float) -> Unit,
     onPopupOpacityCommit: () -> Unit,
@@ -189,7 +220,7 @@ private fun PopupSettingsSection(
     iconSpacing: Float,
     onIconSpacingChange: (Float) -> Unit,
     onIconSpacingCommit: () -> Unit,
-    animationsEnabled: Boolean,
+    reduceMotion: Boolean,
     panelAnimationSpeed: Float,
     onPanelAnimationSpeedChange: (Float) -> Unit,
     onPanelAnimationSpeedCommit: () -> Unit,
@@ -198,193 +229,233 @@ private fun PopupSettingsSection(
     onIconAnimationSpeedCommit: () -> Unit,
     menuScale: Float,
     onMenuScaleChange: (Float) -> Unit,
-    onMenuScaleCommit: () -> Unit
+    onMenuScaleCommit: () -> Unit,
+    cornerRadius: Float,
+    onCornerRadiusChange: (Float) -> Unit,
+    onCornerRadiusCommit: () -> Unit
 ) {
-    Column {
-        ListItem(
-            headlineContent = { Text("Show app names") },
-            supportingContent = { Text("Hide labels under all popup icons") },
-            trailingContent = { BouncySwitch(checked = showAppNames, onCheckedChange = onShowAppNamesChange) }
-        )
-        AnimatedPercentLabel("Background blur: ${(blurIntensity * 100).toInt()}%")
-        Slider(
-            value = blurIntensity,
-            onValueChange = onBlurIntensityChange,
-            onValueChangeFinished = onBlurIntensityCommit,
-            valueRange = 0f..1f
-        )
-        AnimatedPercentLabel("Popup opacity: ${(popupOpacity * 100).toInt()}%")
-        Slider(
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SettingRow("Show app names", "Hide labels under all popup icons") {
+            GlassSwitch(checked = showAppNames, onCheckedChange = onShowAppNamesChange)
+        }
+        SliderRow(
+            title = "Popup opacity",
             value = popupOpacity,
-            onValueChange = onPopupOpacityChange,
-            onValueChangeFinished = onPopupOpacityCommit,
-            valueRange = 0.3f..1f
+            range = 0.1f..1f,
+            format = ::percent,
+            onChange = onPopupOpacityChange,
+            onCommit = onPopupOpacityCommit
         )
-        AnimatedPercentLabel("Panel animation speed: ${(panelAnimationSpeed * 100).toInt()}%")
-        Slider(
+        SliderRow(
+            title = "Popup corner radius",
+            value = cornerRadius,
+            range = 8f..48f,
+            format = ::dpLabel,
+            onChange = onCornerRadiusChange,
+            onCommit = onCornerRadiusCommit
+        )
+        SliderRow(
+            title = "Panel animation speed",
             value = panelAnimationSpeed,
-            onValueChange = onPanelAnimationSpeedChange,
-            onValueChangeFinished = onPanelAnimationSpeedCommit,
-            enabled = animationsEnabled,
-            valueRange = 0.1f..1f
+            range = 0.1f..4f,
+            enabled = !reduceMotion,
+            format = ::percent,
+            onChange = onPanelAnimationSpeedChange,
+            onCommit = onPanelAnimationSpeedCommit
         )
-        AnimatedPercentLabel("Icon animation speed: ${(iconAnimationSpeed * 100).toInt()}%")
-        Slider(
+        SliderRow(
+            title = "Icon animation speed",
             value = iconAnimationSpeed,
-            onValueChange = onIconAnimationSpeedChange,
-            onValueChangeFinished = onIconAnimationSpeedCommit,
-            enabled = animationsEnabled,
-            valueRange = 0.1f..1f
+            range = 0.1f..4f,
+            enabled = !reduceMotion,
+            format = ::percent,
+            onChange = onIconAnimationSpeedChange,
+            onCommit = onIconAnimationSpeedCommit
         )
-        if (!animationsEnabled) {
-            Text(
-                text = "Turn on animations below to adjust speed",
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        if (reduceMotion) {
+            PrismText(
+                text = "Reduce motion is on — turn it off under Motion & haptics to adjust speed",
+                fontSize = 14.sp,
+                color = Prism.subText,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
         }
-        ListItem(
-            headlineContent = { Text("Popup on the right") },
-            supportingContent = { Text("Smaller grid anchored to the right edge instead of the bottom sheet") },
-            trailingContent = { BouncySwitch(checked = rightPopup, onCheckedChange = onRightPopupChange) }
-        )
+        SettingRow(
+            "Popup on the right",
+            "Smaller grid anchored to the right edge instead of the bottom sheet"
+        ) {
+            GlassSwitch(checked = rightPopup, onCheckedChange = onRightPopupChange)
+        }
         if (rightPopup) {
-            ListItem(
-                headlineContent = { Text("Bounce animation") },
-                supportingContent = { Text("Bouncy entry scaling/sliding for right popup") },
-                trailingContent = { BouncySwitch(checked = rightBounce, onCheckedChange = onRightBounceChange) }
-            )
-            ListItem(
-                headlineContent = { Text("Slide-in animation") },
-                supportingContent = { Text("Slide in overlay from the right") },
-                trailingContent = { BouncySwitch(checked = rightSlideIn, onCheckedChange = onRightSlideInChange) }
-            )
-            AnimatedPercentLabel("Vertical Offset (Y-axis): ${rightPopupYOffset.toInt()} dp")
-            Slider(
+            SettingRow("Bounce animation", "Bouncy entry scaling/sliding for right popup") {
+                GlassSwitch(checked = rightBounce, onCheckedChange = onRightBounceChange)
+            }
+            SettingRow("Slide-in animation", "Slide in overlay from the right") {
+                GlassSwitch(checked = rightSlideIn, onCheckedChange = onRightSlideInChange)
+            }
+            SliderRow(
+                title = "Vertical Offset (Y-axis)",
                 value = rightPopupYOffset,
-                onValueChange = onRightPopupYOffsetChange,
-                onValueChangeFinished = onRightPopupYOffsetCommit,
-                valueRange = -300f..300f
+                range = -300f..300f,
+                format = ::dpLabel,
+                onChange = onRightPopupYOffsetChange,
+                onCommit = onRightPopupYOffsetCommit
             )
         } else {
-            ListItem(
-                headlineContent = { Text("Bounce animation") },
-                supportingContent = { Text("Bouncy entry scaling/sliding for bottom popup") },
-                trailingContent = { BouncySwitch(checked = bottomBounce, onCheckedChange = onBottomBounceChange) }
-            )
-            ListItem(
-                headlineContent = { Text("Slide up animation") },
-                supportingContent = { Text("Slide up overlay from the bottom") },
-                trailingContent = { BouncySwitch(checked = bottomSlideUp, onCheckedChange = onBottomSlideUpChange) }
-            )
+            SettingRow("Bounce animation", "Bouncy entry scaling/sliding for bottom popup") {
+                GlassSwitch(checked = bottomBounce, onCheckedChange = onBottomBounceChange)
+            }
+            SettingRow("Slide up animation", "Slide up overlay from the bottom") {
+                GlassSwitch(checked = bottomSlideUp, onCheckedChange = onBottomSlideUpChange)
+            }
         }
-        ListItem(
-            headlineContent = { Text("Show icon border") },
-            supportingContent = { Text("Add background containers around app icons") },
-            trailingContent = { BouncySwitch(checked = showIconBorder, onCheckedChange = onShowIconBorderChange) }
-        )
-        AnimatedPercentLabel("Icon spacing: ${iconSpacing.toInt()} dp")
-        Slider(
+        SettingRow("Show icon border", "Add background containers around app icons") {
+            GlassSwitch(checked = showIconBorder, onCheckedChange = onShowIconBorderChange)
+        }
+        SliderRow(
+            title = "Icon spacing",
             value = iconSpacing,
-            onValueChange = onIconSpacingChange,
-            onValueChangeFinished = onIconSpacingCommit,
-            valueRange = 0f..30f
+            range = 0f..30f,
+            format = ::dpLabel,
+            onChange = onIconSpacingChange,
+            onCommit = onIconSpacingCommit
         )
-        AnimatedPercentLabel("Menu scale: ${(menuScale * 100).toInt()}%")
-        Slider(
+        SliderRow(
+            title = "Menu scale",
             value = menuScale,
-            onValueChange = onMenuScaleChange,
-            onValueChangeFinished = onMenuScaleCommit,
-            valueRange = 0.6f..1.4f
+            range = 0.6f..1.4f,
+            format = ::percent,
+            onChange = onMenuScaleChange,
+            onCommit = onMenuScaleCommit
         )
     }
 }
 
 @Composable
 private fun AppearanceSettingsSection(
-    colorMode: ColorMode,
-    onColorModeChange: (ColorMode) -> Unit,
-    amoledMode: Boolean,
-    onAmoledModeChange: (Boolean) -> Unit,
+    backdrop: Backdrop,
+    ui: UiSettings,
+    onUiChange: ((UiSettings) -> UiSettings) -> Unit,
     gridView: Boolean,
     onGridViewChange: (Boolean) -> Unit
 ) {
-    Column {
-        Text("Color style")
-        Row(
-            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            FilterChip(
-                selected = colorMode == ColorMode.DYNAMIC,
-                onClick = { onColorModeChange(ColorMode.DYNAMIC) },
-                label = { Text("Wallpaper colors") }
-            )
-            FilterChip(
-                selected = colorMode == ColorMode.BRAND,
-                onClick = { onColorModeChange(ColorMode.BRAND) },
-                label = { Text("Flick colors") }
+            PrismText("Theme", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            GlassSegmented(
+                options = listOf("System", "Light", "Dark"),
+                selectedIndex = ui.theme.ordinal,
+                onSelect = { index -> onUiChange { s -> s.copy(theme = ThemeMode.entries[index]) } },
+                modifier = Modifier.fillMaxWidth()
             )
         }
-        ListItem(
-            headlineContent = { Text("AMOLED mode") },
-            supportingContent = { Text("True black backgrounds in dark theme") },
-            trailingContent = { BouncySwitch(checked = amoledMode, onCheckedChange = onAmoledModeChange) }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            PrismText("Accent colour", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            AccentPicker(
+                backdrop = backdrop,
+                accent = Color(ui.accent),
+                onAccent = { c -> onUiChange { it.copy(accent = c.toArgb()) } }
+            )
+        }
+        SliderRow(
+            title = "Surface brightness",
+            value = ui.brightness,
+            range = 0.5f..1.5f,
+            format = ::percent,
+            onChange = { v -> onUiChange { it.copy(brightness = v) } },
+            stepCount = 10
         )
-        ListItem(
-            headlineContent = { Text("Grid view") },
-            supportingContent = { Text("Show bookmarks as a grid in the main menu") },
-            trailingContent = { BouncySwitch(checked = gridView, onCheckedChange = onGridViewChange) }
-        )
+        SettingRow("Grid view", "Show bookmarks as a grid in the main menu") {
+            GlassSwitch(checked = gridView, onCheckedChange = onGridViewChange)
+        }
     }
 }
 
 @Composable
-private fun AnimationSettingsSection(
-    animationsEnabled: Boolean,
-    onAnimationsEnabledChange: (Boolean) -> Unit,
-    animationIntensity: Float,
-    onAnimationIntensityChange: (Float) -> Unit,
-    onAnimationIntensityCommit: () -> Unit
+private fun MotionSettingsSection(
+    backdrop: Backdrop,
+    ui: UiSettings,
+    onUiChange: ((UiSettings) -> UiSettings) -> Unit
 ) {
-    val motion = LocalMotion.current
-    Text("Animations", modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
-    ListItem(
-        headlineContent = { Text("Enable animations") },
-        supportingContent = { Text("Turn off to make every transition instant") },
-        trailingContent = { BouncySwitch(checked = animationsEnabled, onCheckedChange = onAnimationsEnabledChange) }
-    )
-    AnimatedVisibility(
-        visible = animationsEnabled,
-        enter = fadeIn(motion.flickTween(DURATION_MEDIUM)) + expandVertically(motion.flickSpring()),
-        exit = fadeOut(motion.flickTween(DURATION_QUICK)) + shrinkVertically(motion.flickSpring())
-    ) {
-        Column {
-            AnimatedPercentLabel("Animation speed: ${(animationIntensity * 100).toInt()}%")
-            Slider(
-                value = animationIntensity,
-                onValueChange = onAnimationIntensityChange,
-                onValueChangeFinished = onAnimationIntensityCommit,
-                valueRange = 0.1f..1f
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PrismText(
+            "Motion & haptics",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        SettingRow("Reduce motion", "Turn on to make every transition instant") {
+            GlassSwitch(
+                checked = ui.reduceMotion,
+                onCheckedChange = { v -> onUiChange { it.copy(reduceMotion = v) } }
             )
         }
+        SliderRow(
+            title = "Animation speed",
+            value = ui.animationSpeed,
+            range = 0.5f..2f,
+            format = ::percent,
+            onChange = { v -> onUiChange { it.copy(animationSpeed = v) } },
+            stepCount = 6
+        )
+        SliderRow(
+            title = "Motion intensity",
+            value = ui.motionIntensity,
+            range = 0f..1f,
+            format = ::percent,
+            onChange = { v -> onUiChange { it.copy(motionIntensity = v) } }
+        )
+        SettingRow("Haptics", "Vibrate on taps and interactions") {
+            GlassSwitch(
+                checked = ui.haptics,
+                onCheckedChange = { v -> onUiChange { it.copy(haptics = v) } }
+            )
+        }
+        SliderRow(
+            title = "Haptic strength",
+            value = ui.hapticStrength,
+            range = 0.25f..1f,
+            enabled = ui.haptics,
+            format = ::percent,
+            onChange = { v -> onUiChange { it.copy(hapticStrength = v) } }
+        )
+        GlassButton(
+            backdrop = backdrop,
+            text = "Reset to defaults",
+            onClick = { onUiChange { UiSettings().copy(theme = it.theme, accent = it.accent) } },
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
     }
 }
 
 @Composable
 private fun FallbackTriggerSection(
+    backdrop: Backdrop,
     edgeTriggerRunning: Boolean,
     onToggleEdgeTrigger: () -> Unit
 ) {
-    Column {
-        Text("An always-on thin strip at the bottom of the screen — swipe up from it to open Flick.")
-        Button(
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PrismText(
+            "An always-on thin strip at the bottom of the screen — swipe up from it to open Flick.",
+            fontSize = 14.sp,
+            color = Prism.subText
+        )
+        GlassButton(
+            backdrop = backdrop,
+            text = if (edgeTriggerRunning) "Disable edge swipe trigger" else "Enable edge swipe trigger",
             onClick = onToggleEdgeTrigger,
-            modifier = Modifier.padding(top = 8.dp)
-        ) {
-            Text(if (edgeTriggerRunning) "Disable edge swipe trigger" else "Enable edge swipe trigger")
-        }
+            variant = ButtonVariant.Primary
+        )
     }
 }
 
@@ -400,22 +471,23 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     var appearanceSectionExpanded by remember { mutableStateOf(true) }
     var fallbackSectionExpanded by remember { mutableStateOf(true) }
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Flick settings") }) }
-    ) { padding ->
+    PrismScreen(title = "Flick settings") { padding, contentBackdrop ->
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(padding)
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState())
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             AssistantTriggerSection(
+                backdrop = contentBackdrop,
                 roleHeld = roleHeld,
                 onRoleRequestResult = { roleHeld = it }
             )
 
             ExpandableSection(
+                backdrop = contentBackdrop,
                 title = "Popup",
                 expanded = popupSectionExpanded,
                 onToggle = { popupSectionExpanded = !popupSectionExpanded }
@@ -423,9 +495,6 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 PopupSettingsSection(
                     showAppNames = uiState.showAppNames,
                     onShowAppNamesChange = viewModel::setShowAppNames,
-                    blurIntensity = uiState.blurIntensity,
-                    onBlurIntensityChange = viewModel::onBlurIntensityChange,
-                    onBlurIntensityCommit = viewModel::commitBlurIntensity,
                     popupOpacity = uiState.popupOpacity,
                     onPopupOpacityChange = viewModel::onPopupOpacityChange,
                     onPopupOpacityCommit = viewModel::commitPopupOpacity,
@@ -447,7 +516,7 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     iconSpacing = uiState.iconSpacing,
                     onIconSpacingChange = viewModel::onIconSpacingChange,
                     onIconSpacingCommit = viewModel::commitIconSpacing,
-                    animationsEnabled = uiState.animationsEnabled,
+                    reduceMotion = uiState.ui.reduceMotion,
                     panelAnimationSpeed = uiState.panelAnimationSpeed,
                     onPanelAnimationSpeedChange = viewModel::onPanelAnimationSpeedChange,
                     onPanelAnimationSpeedCommit = viewModel::commitPanelAnimationSpeed,
@@ -456,39 +525,42 @@ fun AppSettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     onIconAnimationSpeedCommit = viewModel::commitIconAnimationSpeed,
                     menuScale = uiState.menuScale,
                     onMenuScaleChange = viewModel::onMenuScaleChange,
-                    onMenuScaleCommit = viewModel::commitMenuScale
+                    onMenuScaleCommit = viewModel::commitMenuScale,
+                    cornerRadius = uiState.cornerRadius,
+                    onCornerRadiusChange = viewModel::onCornerRadiusChange,
+                    onCornerRadiusCommit = viewModel::commitCornerRadius
                 )
             }
 
             ExpandableSection(
+                backdrop = contentBackdrop,
                 title = "Appearance",
                 expanded = appearanceSectionExpanded,
                 onToggle = { appearanceSectionExpanded = !appearanceSectionExpanded }
             ) {
                 AppearanceSettingsSection(
-                    colorMode = uiState.colorMode,
-                    onColorModeChange = viewModel::setColorMode,
-                    amoledMode = uiState.amoledMode,
-                    onAmoledModeChange = viewModel::setAmoledMode,
+                    backdrop = contentBackdrop,
+                    ui = uiState.ui,
+                    onUiChange = viewModel::updateUi,
                     gridView = uiState.gridView,
                     onGridViewChange = viewModel::setGridView
                 )
             }
 
-            AnimationSettingsSection(
-                animationsEnabled = uiState.animationsEnabled,
-                onAnimationsEnabledChange = viewModel::setAnimationsEnabled,
-                animationIntensity = uiState.animationIntensity,
-                onAnimationIntensityChange = viewModel::onAnimationIntensityChange,
-                onAnimationIntensityCommit = viewModel::commitAnimationIntensity
+            MotionSettingsSection(
+                backdrop = contentBackdrop,
+                ui = uiState.ui,
+                onUiChange = viewModel::updateUi
             )
 
             ExpandableSection(
+                backdrop = contentBackdrop,
                 title = "Fallback trigger: edge swipe",
                 expanded = fallbackSectionExpanded,
                 onToggle = { fallbackSectionExpanded = !fallbackSectionExpanded }
             ) {
                 FallbackTriggerSection(
+                    backdrop = contentBackdrop,
                     edgeTriggerRunning = edgeTriggerRunning,
                     onToggleEdgeTrigger = {
                         if (!OverlayPermissionHelper.canDrawOverlays(context)) {

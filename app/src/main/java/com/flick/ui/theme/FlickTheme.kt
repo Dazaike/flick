@@ -1,63 +1,57 @@
 package com.flick.ui.theme
 
+import android.animation.ValueAnimator
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.flick.ui.prism.LocalHaptics
+import com.flick.ui.prism.rememberPrismHaptics
 
+/** Reads persisted [UiSettings] and applies [PrismTheme]. */
 @Composable
-fun FlickTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit
-) {
-    val context = LocalContext.current
-    val themePreferences = remember { ThemePreferences(context.applicationContext) }
-    val amoledMode by themePreferences.amoledMode.collectAsState(initial = false)
-    val colorMode by themePreferences.colorMode.collectAsState(initial = ColorMode.DYNAMIC)
-    val animationsEnabled by themePreferences.animationsEnabled.collectAsState(initial = true)
-    val animationIntensity by themePreferences.animationIntensity.collectAsState(initial = 1f)
+fun FlickTheme(content: @Composable () -> Unit) {
+    val context = LocalContext.current.applicationContext
+    val prefs = remember { ThemePreferences(context) }
+    val ui by prefs.ui.collectAsState(initial = UiSettings())
+    PrismTheme(ui, content)
+}
 
-    val baseScheme = when (colorMode) {
-        ColorMode.DYNAMIC -> if (darkTheme) {
-            dynamicDarkColorScheme(context)
-        } else {
-            dynamicLightColorScheme(context)
-        }
-        ColorMode.BRAND -> if (darkTheme) {
-            FlickBrandDarkColors
-        } else {
-            FlickBrandLightColors
-        }
+/** Provides colours, accent, motion and haptics derived from [settings] to the whole app. */
+@Composable
+fun PrismTheme(settings: UiSettings, content: @Composable () -> Unit) {
+    val dark = when (settings.theme) {
+        ThemeMode.System -> isSystemInDarkTheme()
+        ThemeMode.Light -> false
+        ThemeMode.Dark -> true
     }
-
-    val colorScheme = if (darkTheme && amoledMode) {
-        baseScheme.copy(
-            background = Color.Black,
-            surface = Color.Black,
-            surfaceContainerLowest = Color.Black,
-            surfaceContainerLow = Color(0xFF050505),
-            surfaceContainer = Color(0xFF0A0A0A),
-            surfaceContainerHigh = Color(0xFF0F0F0F),
-            surfaceContainerHighest = Color(0xFF141414)
-        )
-    } else {
-        baseScheme
+    val reduced = settings.reduceMotion || !ValueAnimator.areAnimatorsEnabled()
+    val motion = remember(settings.animationSpeed, settings.motionIntensity, reduced) {
+        MotionSpec(settings.animationSpeed, settings.motionIntensity, reduced)
     }
+    val t by animateFloatAsState(if (dark) 1f else 0f, motion.fade(320), label = "themeFade")
+    val colors = remember(t, settings.brightness) {
+        lerp(prismColors(false, settings.brightness), prismColors(true, settings.brightness), t)
+    }
+    val accent = Color(settings.accent)
 
     CompositionLocalProvider(
-        LocalMotion provides MotionConfig(enabled = animationsEnabled, intensity = animationIntensity)
-    ) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = FlickTypography,
-            content = content
-        )
-    }
+        LocalPrismColors provides colors,
+        LocalAccent provides accent,
+        LocalContentColor provides colors.text,
+        LocalMotion provides motion,
+        LocalHaptics provides rememberPrismHaptics(settings.haptics, settings.hapticStrength),
+        LocalTextSelectionColors provides TextSelectionColors(
+            handleColor = accent,
+            backgroundColor = accent.copy(alpha = 0.32f),
+        ),
+        content = content,
+    )
 }

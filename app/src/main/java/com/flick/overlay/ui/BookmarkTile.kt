@@ -1,7 +1,10 @@
 package com.flick.overlay.ui
 
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,39 +20,33 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Android
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Dialpad
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Sms
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.flick.data.model.Bookmark
+import androidx.compose.ui.unit.sp
 import com.flick.data.model.BookmarkAction
+import com.flick.ui.prism.PrismIcon
+import com.flick.ui.prism.PrismIcons
 import com.flick.ui.theme.DURATION_QUICK
 import com.flick.ui.theme.LocalMotion
-import com.flick.ui.theme.flickSpring
-import com.flick.ui.theme.flickTween
+import com.flick.ui.theme.MotionSpec
+import com.flick.ui.theme.Prism
+import com.flick.ui.theme.PrismText
+import com.kyant.shapes.RoundedRectangle
+
+private fun tileSpring(motion: MotionSpec, damping: Float, stiffness: Float): FiniteAnimationSpec<Float> =
+    if (motion.reduced) snap() else spring(dampingRatio = damping, stiffness = stiffness * motion.speed.coerceAtLeast(0.1f))
 
 @Composable
 fun BookmarkTile(
@@ -73,14 +70,14 @@ fun BookmarkTile(
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scaleSpec = remember(motion) {
-        motion.flickSpring<Float>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh)
+        tileSpring(motion, Spring.DampingRatioMediumBouncy, Spring.StiffnessHigh)
     }
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.82f else 1f,
         animationSpec = scaleSpec,
         label = "tileScale"
     )
-    val glowSpec = remember(motion) { motion.flickTween<Float>(DURATION_QUICK) }
+    val glowSpec = remember(motion) { motion.fade<Float>(DURATION_QUICK) }
     val glowAlpha by animateFloatAsState(
         targetValue = if (pressed) 0.35f else 0f,
         animationSpec = glowSpec,
@@ -88,18 +85,15 @@ fun BookmarkTile(
     )
 
     val delayMs = remember(index) { (index * 12).coerceAtMost(120) }
-    val enterSpec = remember(motion, delayMs) { motion.flickTween<Float>(160, delayMs) }
+    val enterSpec = remember(motion, delayMs) { motion.fade<Float>(160, delayMs) }
     val enterProgress by animateFloatAsState(
         targetValue = if (visible) 1f else 0f,
         animationSpec = enterSpec,
         label = "tileEnter"
     )
     val enterScaleSpring = remember(motion, bounceEnabled) {
-        if (bounceEnabled) {
-            motion.flickSpring<Float>(dampingRatio = 0.25f, stiffness = 500f)
-        } else {
-            motion.flickSpring<Float>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
-        }
+        if (bounceEnabled) tileSpring(motion, 0.25f, 500f)
+        else tileSpring(motion, Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium)
     }
     val enterScale by animateFloatAsState(
         targetValue = if (visible) 1f else if (slideAnimation) 1f else 0.6f,
@@ -110,32 +104,34 @@ fun BookmarkTile(
     val slideOffsetPx = with(density) { 18.dp.toPx() }
     val enterAlpha = when {
         !animateEnter -> 1f
-        !motion.enabled -> 1f
+        motion.reduced -> 1f
         slideAnimation -> tileRevealAlpha(enterProgress, invisibleUntil = 0.82f)
         else -> tileRevealAlpha(enterProgress, invisibleUntil = 0.6f)
     }
     val travelProgress = if (animateEnter) easeOutCubic(enterProgress) else 1f
     val displayedEnterScale = if (animateEnter) enterScale else 1f
 
-    Surface(
+    Box(
         modifier = modifier
             .height(if (showLabel) 76.dp else 54.dp)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .semantics { contentDescription = item.bookmark.label }
+            .clip(RoundedRectangle(16.dp))
+            .background(
+                if (mergeHighlighted) {
+                    Prism.accent.copy(alpha = 0.25f)
+                } else if (showIconBorder) {
+                    Prism.colors.fill
+                } else {
+                    androidx.compose.ui.graphics.Color.Transparent
+                }
+            )
             .clickable(
                 enabled = clickEnabled,
                 interactionSource = interactionSource,
-                indication = LocalIndication.current,
+                indication = null,
                 onClick = onClick
-            ),
-        shape = RoundedCornerShape(16.dp),
-        color = if (mergeHighlighted) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-        } else if (showIconBorder) {
-            MaterialTheme.colorScheme.surface
-        } else {
-            androidx.compose.ui.graphics.Color.Transparent
-        }
+            )
     ) {
         Box(
             modifier = Modifier
@@ -144,7 +140,7 @@ fun BookmarkTile(
                 .graphicsLayer {
                     clip = false
                     alpha = enterAlpha
-                    if (motion.enabled && animateEnter) {
+                    if (!motion.reduced && animateEnter) {
                         when {
                             slideAnimation -> {
                                 val offset = (1f - travelProgress) * slideOffsetPx
@@ -162,12 +158,14 @@ fun BookmarkTile(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 if (unavailable) {
-                    Icon(
-                        Icons.Filled.Warning,
+                    PrismIcon(
+                        PrismIcons.Alert,
                         contentDescription = null,
+                        size = 32.dp,
                         modifier = Modifier
                             .size(42.dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = glowAlpha), CircleShape)
+                            .background(Prism.accent.copy(alpha = glowAlpha), CircleShape)
+                            .padding(5.dp)
                     )
                 } else if (item.bookmark.action is BookmarkAction.Folder) {
                     FolderPreviewIcon(
@@ -181,29 +179,33 @@ fun BookmarkTile(
                         contentDescription = null,
                         modifier = Modifier
                             .size(42.dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = glowAlpha), CircleShape)
+                            .background(Prism.accent.copy(alpha = glowAlpha), CircleShape)
                     )
                 } else {
                     val fallbackIcon = when (item.bookmark.action) {
-                        is BookmarkAction.WebUrl -> Icons.Filled.Public
-                        is BookmarkAction.SettingsPanel -> Icons.Filled.Settings
-                        is BookmarkAction.DialNumber -> Icons.Filled.Dialpad
-                        is BookmarkAction.DirectCall, is BookmarkAction.CallContact -> Icons.Filled.Call
-                        is BookmarkAction.SendSms, is BookmarkAction.MessageContact -> Icons.Filled.Sms
-                        else -> Icons.Filled.Android
+                        is BookmarkAction.WebUrl -> PrismIcons.Globe
+                        is BookmarkAction.SettingsPanel -> PrismIcons.Settings
+                        is BookmarkAction.DialNumber -> PrismIcons.Dialpad
+                        is BookmarkAction.DirectCall, is BookmarkAction.CallContact -> PrismIcons.Call
+                        is BookmarkAction.SendSms, is BookmarkAction.MessageContact -> PrismIcons.Sms
+                        else -> PrismIcons.App
                     }
-                    Icon(
+                    PrismIcon(
                         fallbackIcon,
                         contentDescription = null,
+                        size = 32.dp,
                         modifier = Modifier
                             .size(42.dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = glowAlpha), CircleShape)
+                            .background(Prism.accent.copy(alpha = glowAlpha), CircleShape)
+                            .padding(5.dp)
                     )
                 }
                 if (showLabel) {
                     Spacer(modifier = Modifier.height(3.dp))
-                    Text(
+                    PrismText(
                         text = item.bookmark.label,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
                         textAlign = TextAlign.Center,
                         maxLines = 1
                     )
@@ -223,16 +225,17 @@ private fun FolderPreviewIcon(childPreview: List<android.graphics.Bitmap?>, glow
     Box(
         modifier = Modifier
             .size(42.dp)
-            .background(MaterialTheme.colorScheme.primary.copy(alpha = glowAlpha), RoundedCornerShape(12.dp)),
+            .background(Prism.accent.copy(alpha = glowAlpha), RoundedCornerShape(12.dp)),
         contentAlignment = Alignment.Center
     ) {
         if (resolvedIcons.isEmpty()) {
-            Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(32.dp))
+            PrismIcon(PrismIcons.Folder, contentDescription = null, size = 32.dp)
         } else {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.size(36.dp)
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedRectangle(10.dp))
+                    .background(Prism.colors.fillStrong)
             ) {
                 Column(modifier = Modifier.fillMaxSize().padding(3.dp)) {
                     Row(modifier = Modifier.fillMaxSize()) {
@@ -271,23 +274,4 @@ private fun FolderPreviewCell(icon: android.graphics.Bitmap?, modifier: Modifier
     } else {
         Spacer(modifier = modifier.fillMaxSize())
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun BookmarkTilePreview() {
-    BookmarkTile(
-        item = OverlayBookmarkItem(
-            bookmark = Bookmark(
-                id = 1,
-                categoryId = 1,
-                label = "Example",
-                sortOrder = 0,
-                action = BookmarkAction.WebUrl("https://example.com")
-            ),
-            icon = null
-        ),
-        showLabel = true,
-        onClick = {}
-    )
 }

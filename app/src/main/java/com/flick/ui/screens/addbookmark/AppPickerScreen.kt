@@ -1,12 +1,10 @@
 package com.flick.ui.screens.addbookmark
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.Text
+import com.flick.ui.prism.PrismListItem
+import com.kyant.shapes.RoundedRectangle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,19 +35,20 @@ fun AppPickerScreen(
     ) {
         itemsIndexed(apps, key = { _, app -> app.packageName }) { index, app ->
             val iconBitmap = app.icon?.let { icon -> remember(icon) { icon.asImageBitmap() } }
-            ListItem(
-                leadingContent = {
-                    iconBitmap?.let { bitmap ->
+            PrismListItem(
+                leading = iconBitmap?.let { bitmap ->
+                    {
                         Image(
                             bitmap = bitmap,
                             contentDescription = null,
-                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
+                            modifier = Modifier.size(40.dp).clip(RoundedRectangle(8.dp))
                         )
                     }
                 },
-                headlineContent = { Text(app.label) },
-                supportingContent = { Text(app.packageName) },
-                modifier = Modifier.animateItem().clickable {
+                headline = app.label,
+                supporting = app.packageName,
+                modifier = Modifier.animateItem(),
+                onClick = {
                     if (onAppSelected != null) {
                         onAppSelected(app)
                     } else {

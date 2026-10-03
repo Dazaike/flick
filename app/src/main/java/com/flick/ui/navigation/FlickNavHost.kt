@@ -8,11 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavGraphBuilder
@@ -37,9 +33,7 @@ import com.flick.ui.screens.bookmarklist.BookmarkListScreen
 import com.flick.ui.screens.iconpicker.IconPackPickerScreen
 import com.flick.ui.screens.settings.AppSettingsScreen
 import com.flick.ui.theme.DURATION_MEDIUM
-import com.flick.ui.theme.MotionConfig
-import com.flick.ui.theme.ThemePreferences
-import com.flick.ui.theme.flickTween
+import com.flick.ui.theme.LocalMotion
 
 object FlickDestinations {
     const val BOOKMARK_LIST = "bookmark_list"
@@ -74,27 +68,27 @@ private val modeArg = navArgument("mode") { type = NavType.StringType }
 @Composable
 fun FlickNavHost(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
-    val context = LocalContext.current
-    val themePreferences = remember { ThemePreferences(context.applicationContext) }
-    val animationsEnabled by themePreferences.animationsEnabled.collectAsState(initial = true)
-    val animationIntensity by themePreferences.animationIntensity.collectAsState(initial = 1f)
-    val motion = MotionConfig(enabled = animationsEnabled, intensity = animationIntensity)
+    val motion = LocalMotion.current
 
     fun forwardEnter(): EnterTransition =
-        fadeIn(motion.flickTween(DURATION_MEDIUM)) +
-            slideInHorizontally(motion.flickTween(DURATION_MEDIUM)) { fullWidth -> fullWidth / 4 }
+        if (motion.reduced) fadeIn(motion.fade(DURATION_MEDIUM))
+        else fadeIn(motion.fade(DURATION_MEDIUM)) +
+            slideInHorizontally(motion.enter(DURATION_MEDIUM)) { fullWidth -> (fullWidth * motion.magnitude / 4).toInt() }
 
     fun forwardExit(): ExitTransition =
-        fadeOut(motion.flickTween(DURATION_MEDIUM)) +
-            slideOutHorizontally(motion.flickTween(DURATION_MEDIUM)) { fullWidth -> -fullWidth / 4 }
+        if (motion.reduced) fadeOut(motion.fade(DURATION_MEDIUM))
+        else fadeOut(motion.fade(DURATION_MEDIUM)) +
+            slideOutHorizontally(motion.exit(DURATION_MEDIUM)) { fullWidth -> (-fullWidth * motion.magnitude / 4).toInt() }
 
     fun popEnter(): EnterTransition =
-        fadeIn(motion.flickTween(DURATION_MEDIUM)) +
-            slideInHorizontally(motion.flickTween(DURATION_MEDIUM)) { fullWidth -> -fullWidth / 4 }
+        if (motion.reduced) fadeIn(motion.fade(DURATION_MEDIUM))
+        else fadeIn(motion.fade(DURATION_MEDIUM)) +
+            slideInHorizontally(motion.enter(DURATION_MEDIUM)) { fullWidth -> (-fullWidth * motion.magnitude / 4).toInt() }
 
     fun popExit(): ExitTransition =
-        fadeOut(motion.flickTween(DURATION_MEDIUM)) +
-            slideOutHorizontally(motion.flickTween(DURATION_MEDIUM)) { fullWidth -> fullWidth / 4 }
+        if (motion.reduced) fadeOut(motion.fade(DURATION_MEDIUM))
+        else fadeOut(motion.fade(DURATION_MEDIUM)) +
+            slideOutHorizontally(motion.exit(DURATION_MEDIUM)) { fullWidth -> (fullWidth * motion.magnitude / 4).toInt() }
 
     fun NavGraphBuilder.flickComposable(
         route: String,
